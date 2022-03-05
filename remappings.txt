@@ -1,0 +1,8 @@
+ds-test/=lib/ds-test/src/
+openzeppelin/=lib/openzeppelin-contracts/
+@openzeppelin/=lib/openzeppelin-contracts/
+fiat/=lib/fiat/src/
+vaults/=lib/vaults/src/
+prb-math/=lib/fiat/lib/prb-math/
+proxy/=lib/proxy/
+mockprovider/=lib/mockprovider/src/
