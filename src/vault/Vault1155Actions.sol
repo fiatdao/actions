@@ -20,11 +20,11 @@ import {VaultActions} from "./VaultActions.sol";
 contract Vault1155Actions is VaultActions {
     /// ======== Custom Errors ======== ///
 
-    error Vault1155Actions_enterVault_zeroVaultAddress();
-    error Vault1155Actions_enterVault_zeroTokenAddress();
-    error Vault1155Actions_exitVault_zeroVaultAddress();
-    error Vault1155Actions_exitVault_zeroToAddress();
-    error Vault1155Actions_exitVault_zeroTokenAddress();
+    error Vault1155Actions__enterVault_zeroVaultAddress();
+    error Vault1155Actions__enterVault_zeroTokenAddress();
+    error Vault1155Actions__exitVault_zeroVaultAddress();
+    error Vault1155Actions__exitVault_zeroToAddress();
+    error Vault1155Actions__exitVault_zeroTokenAddress();
 
     constructor(
         address codex_,
@@ -47,8 +47,8 @@ contract Vault1155Actions is VaultActions {
         address from,
         uint256 amount
     ) public virtual override {
-        if (vault == address(0)) revert Vault1155Actions_enterVault_zeroVaultAddress();
-        if (token == address(0)) revert Vault1155Actions_enterVault_zeroTokenAddress();
+        if (vault == address(0)) revert Vault1155Actions__enterVault_zeroVaultAddress();
+        if (token == address(0)) revert Vault1155Actions__enterVault_zeroTokenAddress();
 
         // if `from` is set to an external address then transfer amount to the proxy first
         // requires `from` to have set an allowance for the proxy
@@ -74,9 +74,9 @@ contract Vault1155Actions is VaultActions {
         address to,
         uint256 amount
     ) public virtual override {
-        if (vault == address(0)) revert Vault1155Actions_exitVault_zeroVaultAddress();
-        if (token == address(0)) revert Vault1155Actions_exitVault_zeroTokenAddress();
-        if (to == address(0)) revert Vault1155Actions_exitVault_zeroToAddress();
+        if (vault == address(0)) revert Vault1155Actions__exitVault_zeroVaultAddress();
+        if (token == address(0)) revert Vault1155Actions__exitVault_zeroTokenAddress();
+        if (to == address(0)) revert Vault1155Actions__exitVault_zeroToAddress();
 
         IVault(vault).exit(tokenId, to, amount);
     }

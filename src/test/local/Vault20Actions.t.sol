@@ -15,7 +15,7 @@ import {Publican} from "fiat/Publican.sol";
 import {FIAT} from "fiat/FIAT.sol";
 import {Moneta} from "fiat/Moneta.sol";
 import {IVault} from "fiat/interfaces/IVault.sol";
-import {toInt256, WAD, sub, wdiv} from "fiat/utils/Math.sol";
+import {toInt256, WAD, sub, wmul, wdiv} from "fiat/utils/Math.sol";
 
 import {Vault20} from "vaults/Vault.sol";
 import {VaultEPT} from "vaults/VaultEPT.sol";
@@ -499,12 +499,47 @@ contract Vault20Actions_UnitTest_1 is DSTest {
         publican.collect(address(vault20Instance));
 
         (, uint256 rate, , ) = codex.vaults(address(vault20Instance));
-        uint256 interest = sub(200 * WAD, wdiv(200 * WAD, rate));
 
         _modifyCollateralAndDebt(address(vault20Instance), collateralToken, address(0), me, 0, -toInt256(200 * WAD));
 
-        assertEq(fiat.balanceOf(me), meInitialBalance - (200 * WAD));
-        assertEq(_normalDebt(address(vault20Instance), address(userProxy)), (initialDebt + interest) - (200 * WAD));
+        assertEq(fiat.balanceOf(me), meInitialBalance - wmul(200 * WAD, rate));
+        assertEq(_normalDebt(address(vault20Instance), address(userProxy)), (initialDebt) - (200 * WAD));
+    }
+
+    function test_decreaseDebt_accrues_interest_close() public {
+        hevm.warp(block.timestamp + 1000);
+
+        _modifyCollateralAndDebt(
+            address(vault20Instance),
+            collateralToken,
+            me,
+            me,
+            toInt256(wdiv(1000 * ONE_COLLATERAL_TOKEN, 10**IERC20Metadata(collateralToken).decimals())),
+            toInt256(500 * WAD)
+        );
+        
+        uint256 creditPlus = codex.credit(address(userProxy));
+        assertEq(fiat.balanceOf(me), 500 * WAD);
+        assertGt(creditPlus, 0);
+
+        hevm.warp(block.timestamp + 31622400);        
+        publican.collect(address(vault20Instance));
+
+        (, uint256 rate, , ) = codex.vaults(address(vault20Instance));
+        uint256 interest = wmul(rate, 500 * WAD) - (500 * WAD) - creditPlus;
+        codex.createUnbackedDebt(me, me, interest);
+        codex.grantDelegate(address(moneta));
+        moneta.exit(me, interest);
+
+        uint256 meInitialBalance = fiat.balanceOf(me);
+        uint256 initialDebt = _normalDebt(address(vault20Instance), address(userProxy));
+        assertEq(meInitialBalance + creditPlus, wmul(rate, 500 * WAD));
+
+        _modifyCollateralAndDebt(address(vault20Instance), collateralToken, address(0), me, 0, -toInt256(500 * WAD));
+
+        assertEq(fiat.balanceOf(me), meInitialBalance - (500 * WAD + interest));
+        assertEq(codex.credit(address(userProxy)), 0);
+        assertEq(_normalDebt(address(vault20Instance), address(userProxy)), (initialDebt) - (500 * WAD));
     }
 
     function test_decreaseDebt_get_fiat_from() public {

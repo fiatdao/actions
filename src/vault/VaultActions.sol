@@ -17,7 +17,7 @@ import {WAD, toInt256, sub, wmul, wdiv} from "fiat/utils/Math.sol";
 abstract contract VaultActions {
     /// ======== Custom Errors ======== ///
 
-    error VaultActions_exitMoneta_zeroUserAddress();
+    error VaultActions__exitMoneta_zeroUserAddress();
 
     /// ======== Storage ======== ///
 
@@ -53,7 +53,7 @@ abstract contract VaultActions {
     /// @param to Address of the recipient
     /// @param amount Amount of FIAT to exit [wad]
     function exitMoneta(address to, uint256 amount) public {
-        if (to == address(0)) revert VaultActions_exitMoneta_zeroUserAddress();
+        if (to == address(0)) revert VaultActions__exitMoneta_zeroUserAddress();
 
         // proxy needs to delegate ability to transfer internal credit on its behalf to Moneta first
         if (codex.delegates(address(this), address(moneta)) != 1) codex.grantDelegate(address(moneta));
@@ -126,11 +126,12 @@ abstract contract VaultActions {
 
         if (deltaNormalDebt < 0) {
             // transfer FIAT to be used for paying back debt into Moneta
-            enterMoneta(creditor, uint256(-deltaNormalDebt));
-
-            // deduct due interest from normal debt
+            uint256 credit = codex.credit(address(this));
+            // add due interest from normal debt
             (, uint256 rate, , ) = codex.vaults(vault);
-            deltaNormalDebt = -toInt256(wdiv(uint256(-deltaNormalDebt), rate));
+            uint256 amount = uint256(-wmul(rate, deltaNormalDebt));
+            // subtract credit owned by proxy
+            if (credit < amount) enterMoneta(creditor, sub(amount, credit));
         }
 
         // transfer tokens to be used as collateral into Vault

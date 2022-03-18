@@ -23,11 +23,11 @@ contract Vault20Actions is VaultActions {
 
     /// ======== Custom Errors ======== ///
 
-    error VaultActions_enterVault_zeroVaultAddress();
-    error VaultActions_enterVault_zeroTokenAddress();
-    error VaultActions_exitVault_zeroVaultAddress();
-    error VaultActions_exitVault_zeroTokenAddress();
-    error VaultActions_exitVault_zeroToAddress();
+    error VaultActions__enterVault_zeroVaultAddress();
+    error VaultActions__enterVault_zeroTokenAddress();
+    error VaultActions__exitVault_zeroVaultAddress();
+    error VaultActions__exitVault_zeroTokenAddress();
+    error VaultActions__exitVault_zeroToAddress();
 
     constructor(
         address codex_,
@@ -50,8 +50,8 @@ contract Vault20Actions is VaultActions {
         address from,
         uint256 amount
     ) public virtual override {
-        if (vault == address(0)) revert VaultActions_enterVault_zeroVaultAddress();
-        if (token == address(0)) revert VaultActions_enterVault_zeroTokenAddress();
+        if (vault == address(0)) revert VaultActions__enterVault_zeroVaultAddress();
+        if (token == address(0)) revert VaultActions__enterVault_zeroTokenAddress();
 
         // if `from` is set to an external address then transfer amount to the proxy first
         // requires `from` to have set an allowance for the proxy
@@ -77,9 +77,9 @@ contract Vault20Actions is VaultActions {
         address to,
         uint256 amount
     ) public virtual override {
-        if (vault == address(0)) revert VaultActions_exitVault_zeroVaultAddress();
-        if (token == address(0)) revert VaultActions_exitVault_zeroTokenAddress();
-        if (to == address(0)) revert VaultActions_exitVault_zeroToAddress();
+        if (vault == address(0)) revert VaultActions__exitVault_zeroVaultAddress();
+        if (token == address(0)) revert VaultActions__exitVault_zeroTokenAddress();
+        if (to == address(0)) revert VaultActions__exitVault_zeroToAddress();
 
         IVault(vault).exit(0, to, amount);
     }

@@ -29,11 +29,10 @@ interface IVaultSY {
 /// @notice A set of vault actions for modifying positions collateralized by BarnBridge Smart Yield senior bonds
 contract VaultSYActions is VaultActions {
     /// ======== Custom Errors ======== ///
-    error VaultSYActions_enterVault_zeroVaultAddress();
-    error VaultSYActions_enterVault_zeroTokenAddress();
-    error VaultSYActions_exitVault_zeroVaultAddress();
-    error VaultSYActions_exitVault_zeroAmount();
-    error VaultSYActions_exitVault_zeroToAddress();
+    error VaultSYActions__enterVault_zeroVaultAddress();
+    error VaultSYActions__enterVault_zeroTokenAddress();
+    error VaultSYActions__exitVault_zeroVaultAddress();
+    error VaultSYActions__exitVault_zeroToAddress();
 
     constructor(
         address codex_,
@@ -51,8 +50,8 @@ contract VaultSYActions is VaultActions {
         address from,
         uint256 amount
     ) public override {
-        if (vault == address(0)) revert VaultSYActions_enterVault_zeroVaultAddress();
-        if (token == address(0)) revert VaultSYActions_enterVault_zeroTokenAddress();
+        if (vault == address(0)) revert VaultSYActions__enterVault_zeroVaultAddress();
+        if (token == address(0)) revert VaultSYActions__enterVault_zeroTokenAddress();
 
         // if `from` is set to an external address then transfer amount to the proxy first
         // requires `from` to have set an allowance for the proxy
@@ -76,8 +75,8 @@ contract VaultSYActions is VaultActions {
         address to,
         uint256 amount
     ) public override {
-        if (vault == address(0)) revert VaultSYActions_exitVault_zeroVaultAddress();
-        if (to == address(0)) revert VaultSYActions_exitVault_zeroToAddress();
+        if (vault == address(0)) revert VaultSYActions__exitVault_zeroVaultAddress();
+        if (to == address(0)) revert VaultSYActions__exitVault_zeroToAddress();
 
         IVault(vault).exit(tokenId, address(this), amount);
         uint256 maturity = IVault(vault).maturity(tokenId);
