@@ -94,11 +94,10 @@ abstract contract VaultActions {
 
     /// @notice method for adjusting collateral and debt balances of a position.
     /// 1. updates the interest rate accumulator for the given vault
-    /// 2. enters FIAT into Moneta if deltaNormalDebt is negative
+    /// 2. enters FIAT into Moneta if deltaNormalDebt is negative (applies rate to deltaNormalDebt)
     /// 3. enters Collateral into Vault if deltaCollateral is positive
-    /// 3. deduct due interest if deltaNormalDebt is negative
     /// 3. modifies collateral and debt balances in Codex
-    /// 4. exits FIAT from Moneta if deltaNormalDebt is positive
+    /// 4. exits FIAT from Moneta if deltaNormalDebt is positive (applies rate to deltaNormalDebt)
     /// 5. exits Collateral from Vault if deltaCollateral is negative
     /// @dev The user needs to previously approve the UserProxy for spending collateral tokens or FIAT tokens
     /// If `position` is not the UserProxy, the `position` owner needs grant a delegate to UserProxy via Codex
@@ -110,7 +109,7 @@ abstract contract VaultActions {
     /// @param creditor Address of who provides or receives the FIAT delta for the debt delta
     /// @param deltaCollateral Amount of collateral to put up (+) for or remove (-) from this Position [wad]
     /// @param deltaNormalDebt Amount of normalized debt (gross, before rate is applied) to generate (+) or
-    /// settle (-) on this Position [wad]
+    /// settle (-) for this Position [wad]
     function modifyCollateralAndDebt(
         address vault,
         address token,
@@ -125,13 +124,9 @@ abstract contract VaultActions {
         if (deltaNormalDebt != 0) publican.collect(vault);
 
         if (deltaNormalDebt < 0) {
-            // transfer FIAT to be used for paying back debt into Moneta
-            uint256 credit = codex.credit(address(this));
             // add due interest from normal debt
             (, uint256 rate, , ) = codex.vaults(vault);
-            uint256 amount = uint256(-wmul(rate, deltaNormalDebt));
-            // subtract credit owned by proxy
-            if (credit < amount) enterMoneta(creditor, sub(amount, credit));
+            enterMoneta(creditor, uint256(-wmul(rate, deltaNormalDebt)));
         }
 
         // transfer tokens to be used as collateral into Vault
@@ -157,7 +152,11 @@ abstract contract VaultActions {
         );
 
         // redeem newly generated internal credit for FIAT
-        if (deltaNormalDebt > 0) exitMoneta(creditor, uint256(deltaNormalDebt));
+        if (deltaNormalDebt > 0) {
+            // forward all generated credit by applying rate
+            (, uint256 rate, , ) = codex.vaults(vault);
+            exitMoneta(creditor, wmul(uint256(deltaNormalDebt), rate));
+        }
 
         // withdraw tokens not be used as collateral anymore from Vault
         if (deltaCollateral < 0) {
