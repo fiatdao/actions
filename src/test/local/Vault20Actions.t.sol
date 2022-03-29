@@ -936,12 +936,12 @@ contract Vault20Actions_UnitTest_2 is DSTest {
         vaultActions = new Vault20Actions(address(codex), address(moneta), address(fiat), address(publican));
 
         fiat.givenSelectorReturnResponse(
-            FIAT.transferFrom.selector,
+            ERC20.transferFrom.selector,
             MockProvider.ReturnData({success: true, data: abi.encode(bool(true))}),
             false
         );
         fiat.givenSelectorReturnResponse(
-            FIAT.approve.selector,
+            ERC20.approve.selector,
             MockProvider.ReturnData({success: true, data: abi.encode(bool(true))}),
             false
         );
