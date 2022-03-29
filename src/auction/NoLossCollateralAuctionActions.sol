@@ -99,7 +99,6 @@ contract NoLossCollateralAuctionActions {
         moneta.exit(from, sub(maxCredit, sub(credit, codex.credit(address(this)))));
 
         // transfer bought collateral to recipient
-        // uint256 bought = sub(codex.balances(vault, tokenId, address(this)), balance);
         uint256 bought = wmul(sub(codex.balances(vault, tokenId, address(this)), balance), IVault(vault).tokenScale());
         IVault(vault).exit(tokenId, recipient, bought);
     }
