@@ -3,8 +3,8 @@
 -include .env
 
 # Update dependencies
-setup           :; make update-libs ; make install-deps
-update-libs     :; git submodule update --init --recursive
+setup           :; make install-libs ; make install-deps
+install-libs    :; git submodule update --init --recursive
 install-deps    :; yarn install
 
 # Build & test & deploy
