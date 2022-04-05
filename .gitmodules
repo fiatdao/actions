@@ -18,4 +18,4 @@
 	url = https://github.com/fiatdao/vaults
 [submodule "lib/proxy"]
 	path = lib/proxy
-	url = git@github.com:fiatdao/proxy.git
+	url = https://github.com/fiatdao/proxy
