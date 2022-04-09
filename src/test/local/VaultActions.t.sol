@@ -12,11 +12,10 @@ import {PRBProxy} from "proxy/contracts/PRBProxy.sol";
 
 import {Codex} from "fiat/Codex.sol";
 import {Publican} from "fiat/Publican.sol";
-import {IMoneta} from "fiat/interfaces/IMoneta.sol";
 import {Moneta} from "fiat/Moneta.sol";
 import {FIAT} from "fiat/FIAT.sol";
-
-import {IVault} from "vaults/interfaces/IVault.sol";
+import {IMoneta} from "fiat/interfaces/IMoneta.sol";
+import {IVault} from "fiat/interfaces/IVault.sol";
 
 import {Vault20Actions} from "../../vault/Vault20Actions.sol";
 

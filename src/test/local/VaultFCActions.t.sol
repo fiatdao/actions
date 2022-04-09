@@ -15,12 +15,12 @@ import {MockProvider} from "mockprovider/MockProvider.sol";
 import {Codex} from "fiat/Codex.sol";
 import {Publican} from "fiat/Publican.sol";
 import {Collybus} from "fiat/Collybus.sol";
-import {IMoneta} from "fiat/interfaces/IMoneta.sol";
 import {Moneta} from "fiat/Moneta.sol";
 import {FIAT} from "fiat/FIAT.sol";
 import {WAD, wdiv, toInt256, sub} from "fiat/utils/Math.sol";
+import {IMoneta} from "fiat/interfaces/IMoneta.sol";
+import {IVault} from "fiat/interfaces/IVault.sol";
 
-import {IVault} from "vaults/interfaces/IVault.sol";
 import {VaultFC} from "vaults/VaultFC.sol";
 
 import {Hevm} from "../utils/Hevm.sol";

@@ -18,8 +18,6 @@ import {IVault} from "fiat/interfaces/IVault.sol";
 import {toInt256, WAD, sub, wmul, wdiv} from "fiat/utils/Math.sol";
 
 import {Vault20} from "vaults/Vault.sol";
-import {VaultEPT} from "vaults/VaultEPT.sol";
-import {VaultFactory} from "vaults/VaultFactory.sol";
 
 import {PRBProxyFactory} from "proxy/contracts/PRBProxyFactory.sol";
 import {PRBProxy} from "proxy/contracts/PRBProxy.sol";
