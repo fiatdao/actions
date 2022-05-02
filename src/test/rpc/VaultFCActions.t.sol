@@ -120,26 +120,20 @@ contract VaultFCActions_RPC_tests is DSTest {
         uint32 limitLendRate
     ) internal {
         uint256 fCashAmount = VaultFCActions(vaultActions).underlierToFCash(tokenId, underlierAmount);
-        VaultFCActions.LendParams memory params = VaultFCActions.LendParams(
-            limitLendRate,
+        bytes memory data = abi.encodeWithSelector(
+            vaultActions.buyCollateralAndModifyDebt.selector,
+            vault_,
+            VaultFC(vault_).token(),
+            tokenId,
+            address(userProxy),
+            collateralizer,
+            creditor,
             fCashAmount,
+            deltaNormalDebt,
+            limitLendRate,
             underlierAmount
         );
-        userProxy.execute(
-            address(vaultActions),
-            abi.encodeWithSelector(
-                vaultActions.buyCollateralAndModifyDebt.selector,
-                vault_,
-                VaultFC(vault_).token(),
-                tokenId,
-                address(userProxy),
-                collateralizer,
-                creditor,
-                underlierAmount,
-                deltaNormalDebt,
-                params
-            )
-        );
+        userProxy.execute(address(vaultActions), data);
     }
 
     function _sellCollateralAndModifyDebt(
@@ -163,7 +157,7 @@ contract VaultFCActions_RPC_tests is DSTest {
                 creditor,
                 fCashAmount,
                 deltaNormalDebt,
-                VaultFCActions.LendParams(limitLendRate, 0, 0)
+                limitLendRate
             )
         );
     }

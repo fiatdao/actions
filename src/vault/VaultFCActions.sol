@@ -272,7 +272,7 @@ contract VaultFCActions is Vault1155Actions {
 
     /// ======== Custom Errors ======== ///
 
-    error VaultFCActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
+    error VaultFCActions__buyCollateralAndModifyDebt_zeroMaxUnderlierAmount();
     error VaultFCActions__sellCollateralAndModifyDebt_zeroFCashAmount();
     error VaultFCActions__sellCollateralAndModifyDebt_matured();
     error VaultFCActions__redeemCollateralAndModifyDebt_zeroFCashAmount();
@@ -288,23 +288,11 @@ contract VaultFCActions is Vault1155Actions {
     error VaultFCActions__onERC1155Received_invalidCaller();
     error VaultFCActions__onERC1155Received_invalidValue();
 
-    /// ======== Types ======== ///
-
-    // Lend data
-    struct LendParams {
-        // Minimum or maximum annualized interest rate for buying or selling fCash
-        uint32 limitRate;
-        // Amount of fCash to buy [tokenScale]
-        uint256 fCashAmount;
-        // Amount of underlier token to approve for `notionalV2` for depositing
-        uint256 approve;
-    }
-
     /// ======== Storage ======== ///
 
     /// @notice Address of the Notional V2 monolith
     INotional public immutable notionalV2;
-    /// @notice Scale for all fCash tokens
+    /// @notice Scale for all fCash tokens (== tokenScale)
     uint256 public immutable fCashScale;
 
     constructor(
@@ -331,10 +319,11 @@ contract VaultFCActions is Vault1155Actions {
     /// @param position Address of the position's owner
     /// @param collateralizer Address of who puts up or receives the collateral delta as underlier tokens
     /// @param creditor Address of who provides or receives the FIAT delta for the debt delta
-    /// @param underlierAmount Amount of underlier to swap for pTokens to put up for collateral [underlierScale]
+    /// @param fCashAmount Amount of fCash to buy via underliers and add as collateral [tokenScale]
     /// @param deltaNormalDebt Amount of normalized debt (gross, before rate is applied) to generate (+) or
     /// settle (-) on this Position [wad]
-    /// @param lendParams Parameters of when lending underliers for fCash or redeeming fCash for underliers
+    /// @param minImpliedRate Min. accepted annualized implied lending rate for swapping underliers for fCash [1e9]
+    /// @param maxUnderlierAmount Max. amount of underlier to swap for fCash [underlierScale]
     function buyCollateralAndModifyDebt(
         address vault,
         address token,
@@ -342,14 +331,15 @@ contract VaultFCActions is Vault1155Actions {
         address position,
         address collateralizer,
         address creditor,
-        uint256 underlierAmount,
+        uint256 fCashAmount,
         int256 deltaNormalDebt,
-        LendParams calldata lendParams
+        uint32 minImpliedRate,
+        uint256 maxUnderlierAmount
     ) public {
-        if (underlierAmount == 0) revert VaultFCActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
+        if (maxUnderlierAmount == 0) revert VaultFCActions__buyCollateralAndModifyDebt_zeroMaxUnderlierAmount();
 
         // buy fCash and transfer tokens to be used as collateral into VaultFC
-        uint256 fCashAmount = _buyFCash(tokenId, underlierAmount, collateralizer, lendParams);
+        _buyFCash(tokenId, collateralizer, maxUnderlierAmount, minImpliedRate, uint88(fCashAmount));
         int256 deltaCollateral = toInt256(wdiv(fCashAmount, fCashScale));
 
         // enter fCash and collateralize position
@@ -366,7 +356,7 @@ contract VaultFCActions is Vault1155Actions {
     }
 
     /// @notice Sells the fCash for underliers after it modifies a Position's collateral and debt balances
-    /// and mints/burns FIAT using the underlier token. This method allows for selling pTokens even after maturity.
+    /// and mints/burns FIAT using the underlier token.
     /// @dev The user needs to previously approve the UserProxy for spending collateral tokens or FIAT tokens
     /// If `position` is not the UserProxy, the `position` owner needs grant a delegate to UserProxy via Codex
     /// @param vault Address of the Vault
@@ -375,10 +365,10 @@ contract VaultFCActions is Vault1155Actions {
     /// @param position Address of the position's owner
     /// @param collateralizer Address of who puts up or receives the collateral delta as underlier tokens
     /// @param creditor Address of who provides or receives the FIAT delta for the debt delta
-    /// @param fCashAmount Amount of pToken to remove as collateral and to swap for underlier [tokenScale]
+    /// @param fCashAmount Amount of fCash to remove as collateral and to swap for underliers [tokenScale]
     /// @param deltaNormalDebt Amount of normalized debt (gross, before rate is applied) to generate (+) or
     /// settle (-) on this Position [wad]
-    /// @param lendParams Parameters of when lending underliers for fCash or redeeming fCash for underliers
+    /// @param maxImpliedRate Max. accepted annualized implied borrow rate for swapping fCash for underliers [1e9]
     function sellCollateralAndModifyDebt(
         address vault,
         address token,
@@ -388,7 +378,7 @@ contract VaultFCActions is Vault1155Actions {
         address creditor,
         uint256 fCashAmount,
         int256 deltaNormalDebt,
-        LendParams calldata lendParams
+        uint32 maxImpliedRate
     ) public {
         if (fCashAmount == 0) revert VaultFCActions__sellCollateralAndModifyDebt_zeroFCashAmount();
         if (block.timestamp >= getMaturity(tokenId)) revert VaultFCActions__sellCollateralAndModifyDebt_matured();
@@ -407,12 +397,12 @@ contract VaultFCActions is Vault1155Actions {
             deltaNormalDebt
         );
 
-        // sell fCash according to `lendParams`
-        _sellfCash(tokenId, fCashAmount, collateralizer, lendParams);
+        // sell fCash
+        _sellfCash(tokenId, collateralizer, uint88(fCashAmount), maxImpliedRate);
     }
 
     /// @notice Redeems fCash for underliers after it modifies a Position's collateral and debt balances
-    /// and mints/burns FIAT using the underlier token. This method allows for selling pTokens even after maturity.
+    /// and mints/burns FIAT using the underlier token.
     /// @dev The user needs to previously approve the UserProxy for spending collateral tokens or FIAT tokens
     /// If `position` is not the UserProxy, the `position` owner needs grant a delegate to UserProxy via Codex
     /// @param vault Address of the Vault
@@ -421,7 +411,7 @@ contract VaultFCActions is Vault1155Actions {
     /// @param position Address of the position's owner
     /// @param collateralizer Address of who puts up or receives the collateral delta as underlier tokens
     /// @param creditor Address of who provides or receives the FIAT delta for the debt delta
-    /// @param fCashAmount Amount of pToken to remove as collateral and to swap for underlier [tokenScale]
+    /// @param fCashAmount Amount of fCash to remove as collateral and to redeem for underliers [tokenScale]
     /// @param deltaNormalDebt Amount of normalized debt (gross, before rate is applied) to generate (+) or
     /// settle (-) on this Position [wad]
     function redeemCollateralAndModifyDebt(
@@ -455,44 +445,40 @@ contract VaultFCActions is Vault1155Actions {
     /// @notice Buys fCash tokens (shares) from the Notional AMM
     /// @dev The amount of underlier set as argument is the upper limit to be paid
     /// @param tokenId fCash Id (ERC1155 tokenId)
-    /// @param underlierAmount The amount of underlier used to buy fCash [underlierScale]
     /// @param from Address who pays for the fCash
-    /// @param lendParams Parameters of when lending underliers for fCash
+    /// @param maxUnderlierAmount Max. amount of underlier to swap for fCash [underlierScale]
+    /// @param minImpliedRate Min. accepted annualized implied lending rate for lending out underliers for fCash [1e9]
+    /// @param fCashAmount Amount of fCash to buy via underliers [tokenScale]
     function _buyFCash(
         uint256 tokenId,
-        uint256 underlierAmount,
         address from,
-        LendParams calldata lendParams
-    ) internal returns (uint256 purchasedAmount) {
+        uint256 maxUnderlierAmount,
+        uint32 minImpliedRate,
+        uint88 fCashAmount
+    ) internal {
         (IERC20 underlier, ) = getUnderlierToken(tokenId);
 
-        uint256 balanceBefore;
+        uint256 balanceBefore = 0;
         // if `from` is set to an external address then transfer amount to the proxy first
         // requires `from` to have set an allowance for the proxy
         if (from != address(0) && from != address(this)) {
             balanceBefore = underlier.balanceOf(address(this));
-            underlier.safeTransferFrom(from, address(this), underlierAmount);
+            underlier.safeTransferFrom(from, address(this), maxUnderlierAmount);
         }
 
         INotional.BalanceActionWithTrades[] memory action = new INotional.BalanceActionWithTrades[](1);
         action[0].actionType = INotional.DepositActionType.DepositUnderlying;
-        action[0].depositActionAmount = underlierAmount;
+        action[0].depositActionAmount = maxUnderlierAmount;
         action[0].currencyId = getCurrencyId(tokenId);
         action[0].withdrawEntireCashBalance = true;
         action[0].redeemToUnderlying = true;
         action[0].trades = new bytes32[](1);
-        action[0].trades[0] = EncodeDecode.encodeLendTrade(
-            getMarketIndex(tokenId),
-            uint88(lendParams.fCashAmount),
-            lendParams.limitRate // minimum accepted annulized lend rate of the fCash to buy
-        );
+        action[0].trades[0] = EncodeDecode.encodeLendTrade(getMarketIndex(tokenId), fCashAmount, minImpliedRate);
 
-        if (lendParams.approve != 0) {
+        if (underlier.allowance(address(this), address(notionalV2)) < maxUnderlierAmount) {
             // approve notionalV2 to transfer underlier tokens on behalf of proxy
-            underlier.approve(address(notionalV2), underlierAmount);
+            underlier.approve(address(notionalV2), maxUnderlierAmount);
         }
-
-        uint256 fCashBalanceBefore = notionalV2.balanceOf(address(this), tokenId);
 
         notionalV2.batchBalanceAndTradeAction(address(this), action);
 
@@ -502,24 +488,21 @@ contract VaultFCActions is Vault1155Actions {
             uint256 residual = balanceAfter - balanceBefore;
             if (residual > 0) underlier.safeTransfer(from, residual);
         }
-
-        return notionalV2.balanceOf(address(this), tokenId) - fCashBalanceBefore;
     }
 
     /// @dev Sells an fCash tokens (shares) back on the Notional AMM
     /// @param tokenId fCash Id (ERC1155 tokenId)
     /// @param fCashAmount The amount of fCash to sell [tokenScale]
     /// @param to Receiver of the underlier tokens
-    /// @param lendParams Parameters of when lending underliers for fCash
+    /// @param maxImpliedRate Max. accepted annualized implied borrow rate for swapping fCash for underliers [1e9]
     function _sellfCash(
         uint256 tokenId,
-        uint256 fCashAmount,
         address to,
-        LendParams calldata lendParams
-    ) private returns (uint256) {
-        if (fCashAmount > uint256(type(uint88).max)) revert VaultFCActions__sellfCash_amountOverflow();
+        uint88 fCashAmount,
+        uint32 maxImpliedRate
+    ) internal {
+        if (fCashAmount > type(uint88).max) revert VaultFCActions__sellfCash_amountOverflow();
 
-        uint8 marketIndex = getMarketIndex(tokenId);
         (IERC20 underlier, ) = getUnderlierToken(tokenId);
 
         INotional.BalanceActionWithTrades[] memory action = new INotional.BalanceActionWithTrades[](1);
@@ -528,26 +511,14 @@ contract VaultFCActions is Vault1155Actions {
         action[0].withdrawEntireCashBalance = true;
         action[0].redeemToUnderlying = true;
         action[0].trades = new bytes32[](1);
-        action[0].trades[0] = EncodeDecode.encodeBorrowTrade(
-            marketIndex,
-            uint88(fCashAmount),
-            lendParams.limitRate // maximum accepted annulized lend (borrow) rate of the fCash to sell
-        );
-
-        // if (lendParams.approve != 0) {
-        //     // approve notionalV2 to transfer underlier tokens on behalf of proxy
-        //     underlier.approve(address(notionalV2), underlierAmount);
-        // }
+        action[0].trades[0] = EncodeDecode.encodeBorrowTrade(getMarketIndex(tokenId), fCashAmount, maxImpliedRate);
 
         uint256 balanceBefore = underlier.balanceOf(address(this));
         notionalV2.batchBalanceAndTradeAction(address(this), action);
         uint256 balanceAfter = underlier.balanceOf(address(this));
 
         // Send the resulting underlier to the user
-        uint256 netCash = balanceAfter - balanceBefore;
-        underlier.safeTransfer(to, netCash);
-
-        return netCash;
+        underlier.safeTransfer(to, balanceAfter - balanceBefore);
     }
 
     /// @notice Redeems fCash for underliers (if fCash has matured) and transfers them from the `vault` to `to`
