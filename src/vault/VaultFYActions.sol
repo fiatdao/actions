@@ -144,5 +144,22 @@ contract VaultFYActions is Vault20Actions {
         IERC20(swapParams.assetIn).safeTransfer(fyPool, fyTokenAmount);
         return IFYPool(fyPool).sellFYToken(to, minUnderlier);
     }
+
+    /// ======== View Methods ======== ///
+    function underlierToFYToken(
+        uint256 underlierAmount,
+        address yieldSpacePool
+    ) external view returns (uint256) {
+        if (underlierAmount >= MAX) return 0;
+        return uint256(IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount)));
+    }
+
+    function fyTokenToUnderlier(
+        uint256 fyTokenAmount,
+        address yieldSpacePool
+    ) external view returns (uint256) {
+        if (fyTokenAmount >= MAX) return 0;
+        return uint256(IFYPool(yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount)));
+    }
 }
 
