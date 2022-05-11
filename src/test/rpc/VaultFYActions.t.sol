@@ -32,8 +32,8 @@ contract VaultFYActions_RPC_tests is DSTest {
     Hevm internal hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
     IERC20 internal underlierUSDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
     PRBProxyFactory internal prbProxyFactory;
-    address internal fyUSDC06 = address(0x4568bBcf929AB6B4d716F2a3D5A967a1908B4F1C);
-    address internal fyUSDC06LP = address(0xEf82611C6120185D3BF6e020D1993B49471E7da0);
+    address internal fyUSDC04 = address(0x30FaDeEaAB2d7a23Cb1C35c05e2f8145001fA533);
+    address internal fyUSDC04LP = address(0x407353d527053F3a6140AAA7819B93Af03114227);
 
     Codex internal codex;
     Publican internal publican;
@@ -172,7 +172,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 minOutput,
         uint256 approveAmount
     ) internal view returns (VaultFYActions.SwapParams memory swapParams) {
-        swapParams.yieldSpacePool = fyUSDC06LP;
+        swapParams.yieldSpacePool = fyUSDC04LP;
         swapParams.assetIn = assetIn;
         swapParams.assetOut = assetOut;
         swapParams.minAssetOut = minOutput;
@@ -203,7 +203,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
         _mintUSDC(me, 2000000 * ONE_USDC);
 
-        address instance = vaultFactory.createVault(address(vaultFY_impl), abi.encode(fyUSDC06, address(collybus)));
+        address instance = vaultFactory.createVault(address(vaultFY_impl), abi.encode(fyUSDC04, address(collybus)));
 
         vaultFY_USDC06 = VaultFY(instance);
         codex.setParam(instance, "debtCeiling", uint256(1000 ether));
@@ -221,7 +221,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             abi.encodeWithSelector(underlierUSDC.approve.selector, address(userProxy), type(uint256).max)
         );
         // Collateral
-        IERC20(fyUSDC06).approve(address(userProxy), type(uint256).max);
+        IERC20(fyUSDC04).approve(address(userProxy), type(uint256).max);
         // FIAT
         fiat.approve(address(userProxy), type(uint256).max);
         kakaroto.externalCall(
@@ -244,9 +244,9 @@ contract VaultFYActions_RPC_tests is DSTest {
     function test_increaseCollateral_from_underlier() public {
         uint128 amount = 100 * uint128(ONE_USDC);
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
-        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -254,14 +254,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - amount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= previewOut + vaultInitialBalance);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= previewOut + vaultInitialBalance);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(previewOut, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(previewOut, 10**IERC20Metadata(fyUSDC04).decimals())
         );
     }
 
@@ -270,9 +270,9 @@ contract VaultFYActions_RPC_tests is DSTest {
         underlierUSDC.transfer(address(kakaroto), amount);
 
         uint256 kakarotoInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
-        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -280,12 +280,12 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         assertEq(underlierUSDC.balanceOf(address(kakaroto)), kakarotoInitialBalance - amount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + previewOut);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + previewOut);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertTrue(_collateral(address(vaultFY_USDC06), address(userProxy)) >= initialCollateral + wadAmount);
     }
 
@@ -293,9 +293,9 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 amount = 100 * ONE_USDC;
         underlierUSDC.transfer(address(userProxy), amount);
         uint256 userProxyInitialBalance = underlierUSDC.balanceOf(address(userProxy));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
-        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -303,12 +303,12 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, amount)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, amount)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), userProxyInitialBalance - amount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertTrue(_collateral(address(vaultFY_USDC06), address(userProxy)) >= initialCollateral + wadAmount);
     }
 
@@ -316,9 +316,9 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 amount = 100 * ONE_USDC;
         underlierUSDC.transfer(address(userProxy), amount);
         uint256 userProxyInitialBalance = underlierUSDC.balanceOf(address(userProxy));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
-        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(amount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -326,18 +326,18 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, amount)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, amount)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), userProxyInitialBalance - amount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertTrue(_collateral(address(vaultFY_USDC06), address(userProxy)) >= initialCollateral + wadAmount);
     }
 
     function test_decreaseCollateral_get_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -345,18 +345,18 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
 
         uint256 amount = 500 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta,
             0
@@ -369,14 +369,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         emit log_named_uint("balance", underlierUSDC.balanceOf(me));
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + expectedDelta);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
     }
 
     function test_decreaseCollateral_send_underlier_to_user() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -384,18 +384,18 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 kakarotoInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
 
         uint256 amount = 500 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta,
             0
@@ -404,14 +404,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), address(kakaroto), address(0), amount, 0, swapParams);
 
         assertTrue(underlierUSDC.balanceOf(address(kakaroto)) >= kakarotoInitialBalance + expectedDelta);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
     }
 
     function test_decreaseCollateral_redeem_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -419,11 +419,11 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
 
         uint256 amount = 500 * ONE_USDC;
@@ -434,14 +434,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         _redeemCollateralAndModifyDebt(address(vaultFY_USDC06), me, address(0), amount, 0);
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + amount);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
     }
 
     function test_decreaseCollateral_redeem_underlier_to_user() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -449,11 +449,11 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
 
         uint256 amount = 500 * ONE_USDC;
@@ -464,14 +464,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         _redeemCollateralAndModifyDebt(address(vaultFY_USDC06), address(kakaroto), address(0), amount, 0);
 
         assertTrue(underlierUSDC.balanceOf(address(kakaroto)) >= meInitialBalance + amount);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
     }
 
     function test_increaseDebt() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -479,13 +479,13 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = fiat.balanceOf(me);
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
-        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC06, address(0), me, 0, toInt256(500 * WAD));
+        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC04, address(0), me, 0, toInt256(500 * WAD));
 
         assertEq(fiat.balanceOf(me), meInitialBalance + (500 * WAD));
         assertEq(_normalDebt(address(vaultFY_USDC06), address(userProxy)), initialDebt + (500 * WAD));
@@ -493,7 +493,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_increaseDebt_send_to_user() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -501,7 +501,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 kakarotoInitialBalance = fiat.balanceOf(address(kakaroto));
@@ -509,7 +509,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
         _modifyCollateralAndDebt(
             address(vaultFY_USDC06),
-            fyUSDC06,
+            fyUSDC04,
             address(0),
             address(kakaroto),
             0,
@@ -522,7 +522,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decreaseDebt() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -530,13 +530,13 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = fiat.balanceOf(me);
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
-        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC06, address(0), me, 0, -toInt256(200 * WAD));
+        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC04, address(0), me, 0, -toInt256(200 * WAD));
 
         assertEq(fiat.balanceOf(me), meInitialBalance - (200 * WAD));
         assertEq(_normalDebt(address(vaultFY_USDC06), address(userProxy)), initialDebt - (200 * WAD));
@@ -544,7 +544,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decreaseDebt_get_fiat_from_user() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -552,7 +552,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         fiat.transfer(address(kakaroto), 500 * WAD);
@@ -562,7 +562,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
         _modifyCollateralAndDebt(
             address(vaultFY_USDC06),
-            fyUSDC06,
+            fyUSDC04,
             address(0),
             address(kakaroto),
             0,
@@ -575,7 +575,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decreaseDebt_get_fiat_from_proxy_zero() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -583,7 +583,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         fiat.transfer(address(userProxy), 500 * WAD);
@@ -591,7 +591,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 userProxyInitialBalance = fiat.balanceOf(address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
-        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC06, address(0), address(0), 0, -toInt256(200 * WAD));
+        _modifyCollateralAndDebt(address(vaultFY_USDC06), fyUSDC04, address(0), address(0), 0, -toInt256(200 * WAD));
 
         assertEq(fiat.balanceOf(address(userProxy)), userProxyInitialBalance - (200 * WAD));
         assertEq(_normalDebt(address(vaultFY_USDC06), address(userProxy)), initialDebt - (200 * WAD));
@@ -599,7 +599,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decreaseDebt_get_fiat_from_proxy_address() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -607,7 +607,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         fiat.transfer(address(userProxy), 500 * WAD);
@@ -617,7 +617,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
         _modifyCollateralAndDebt(
             address(vaultFY_USDC06),
-            fyUSDC06,
+            fyUSDC04,
             address(0),
             address(userProxy),
             0,
@@ -630,14 +630,14 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_increaseCollateral_from_underlier_and_increaseDebt() public {
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 tokenAmount = 1000 * ONE_USDC;
         uint256 debtAmount = 500 * WAD;
-        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -645,14 +645,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - tokenAmount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC04).decimals())
         );
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance + debtAmount);
@@ -663,14 +663,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         underlierUSDC.transfer(address(kakaroto), 1000 * ONE_USDC);
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 tokenAmount = 1000 * ONE_USDC;
         uint256 debtAmount = 500 * WAD;
-        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -678,14 +678,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         assertEq(underlierUSDC.balanceOf(address(kakaroto)), meInitialBalance - tokenAmount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC04).decimals())
         );
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance + debtAmount);
@@ -696,14 +696,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         underlierUSDC.transfer(address(userProxy), 1000 * ONE_USDC);
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(userProxy));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 tokenAmount = 1000 * ONE_USDC;
         uint256 debtAmount = 500 * WAD;
-        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -711,14 +711,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, previewOut)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), meInitialBalance - tokenAmount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC04).decimals())
         );
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance + debtAmount);
@@ -729,14 +729,14 @@ contract VaultFYActions_RPC_tests is DSTest {
         underlierUSDC.transfer(address(userProxy), 1000 * ONE_USDC);
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(userProxy));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 tokenAmount = 1000 * ONE_USDC;
         uint256 debtAmount = 500 * WAD;
-        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -744,14 +744,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, previewOut)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), meInitialBalance - tokenAmount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC04).decimals())
         );
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance + debtAmount);
@@ -760,14 +760,14 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_increaseCollateral_from_underlier_and_increaseDebt_send_fiat_to_user() public {
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(address(kakaroto));
 
         uint256 tokenAmount = 1000 * ONE_USDC;
         uint256 debtAmount = 500 * WAD;
-        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(tokenAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -775,14 +775,14 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(kakaroto),
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - tokenAmount);
-        assertTrue(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
+        assertTrue(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)) >= vaultInitialBalance + tokenAmount);
         assertTrue(
             _collateral(address(vaultFY_USDC06), address(userProxy)) >=
-                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC06).decimals())
+                initialCollateral + wdiv(tokenAmount, 10**IERC20Metadata(fyUSDC04).decimals())
         );
 
         assertEq(fiat.balanceOf(address(kakaroto)), fiatMeInitialBalance + debtAmount);
@@ -791,7 +791,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decrease_debt_and_decrease_collateral_get_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -799,20 +799,20 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 amount = 300 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta / 2,
             expectedDelta
@@ -821,8 +821,8 @@ contract VaultFYActions_RPC_tests is DSTest {
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), me, me, amount, -toInt256(100 * WAD), swapParams);
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + swapParams.minAssetOut);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance - (100 * WAD));
@@ -831,7 +831,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decrease_debt_and_decrease_collateral_get_underlier_to_user() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -839,20 +839,20 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
         uint256 fiatMeInitialBalance = fiat.balanceOf(me);
 
         uint256 amount = 300 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta / 2,
             expectedDelta
@@ -868,8 +868,8 @@ contract VaultFYActions_RPC_tests is DSTest {
         );
 
         assertTrue(underlierUSDC.balanceOf(address(kakaroto)) >= meInitialBalance + swapParams.minAssetOut);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
 
         assertEq(fiat.balanceOf(me), fiatMeInitialBalance - (100 * WAD));
@@ -878,7 +878,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decrease_debt_get_fiat_from_user_and_decrease_collateral_get_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -886,11 +886,11 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
@@ -898,10 +898,10 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 fiatKakarotoInitialBalance = fiat.balanceOf(address(kakaroto));
 
         uint256 amount = 300 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta / 2,
             expectedDelta
@@ -917,8 +917,8 @@ contract VaultFYActions_RPC_tests is DSTest {
         );
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + swapParams.minAssetOut);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
 
         assertEq(fiat.balanceOf(address(kakaroto)), fiatKakarotoInitialBalance - (100 * WAD));
@@ -927,7 +927,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decrease_debt_get_fiat_from_proxy_zero_and_decrease_collateral_get_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -935,11 +935,11 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
@@ -947,10 +947,10 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 fiatProxyInitialBalance = fiat.balanceOf(address(userProxy));
 
         uint256 amount = 300 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta / 2,
             expectedDelta
@@ -959,8 +959,8 @@ contract VaultFYActions_RPC_tests is DSTest {
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), me, address(0), amount, -toInt256(100 * WAD), swapParams);
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + swapParams.minAssetOut);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
 
         assertEq(fiat.balanceOf(address(userProxy)), fiatProxyInitialBalance - (100 * WAD));
@@ -969,7 +969,7 @@ contract VaultFYActions_RPC_tests is DSTest {
 
     function test_decrease_debt_get_fiat_from_proxy_and_decrease_collateral_get_underlier() public {
         uint256 testAmount = 1000 * ONE_USDC;
-        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC06LP);
+        uint256 previewOut = vaultActions.underlierToFYToken(testAmount, fyUSDC04LP);
 
         _buyCollateralAndModifyDebt(
             address(vaultFY_USDC06),
@@ -977,11 +977,11 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC06, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
-        uint256 vaultInitialBalance = IERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06));
+        uint256 vaultInitialBalance = IERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06));
         uint256 initialCollateral = _collateral(address(vaultFY_USDC06), address(userProxy));
         uint256 initialDebt = _normalDebt(address(vaultFY_USDC06), address(userProxy));
 
@@ -989,10 +989,10 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 fiatProxyInitialBalance = fiat.balanceOf(address(userProxy));
 
         uint256 amount = 300 * ONE_USDC;
-        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC06LP);
+        uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC06,
+            fyUSDC04,
             address(underlierUSDC),
             expectedDelta / 2,
             expectedDelta
@@ -1008,8 +1008,8 @@ contract VaultFYActions_RPC_tests is DSTest {
         );
 
         assertTrue(underlierUSDC.balanceOf(me) >= meInitialBalance + swapParams.minAssetOut);
-        assertEq(ERC20(fyUSDC06).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
-        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC06).decimals());
+        assertEq(ERC20(fyUSDC04).balanceOf(address(vaultFY_USDC06)), vaultInitialBalance - amount);
+        uint256 wadAmount = wdiv(amount, 10**IERC20Metadata(fyUSDC04).decimals());
         assertEq(_collateral(address(vaultFY_USDC06), address(userProxy)), initialCollateral - wadAmount);
 
         assertEq(fiat.balanceOf(address(userProxy)), fiatProxyInitialBalance - (100 * WAD));
