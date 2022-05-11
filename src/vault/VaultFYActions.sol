@@ -10,10 +10,13 @@ import {WAD, toInt256, wmul, wdiv, sub} from "fiat/utils/Math.sol";
 import {Vault20Actions} from "./Vault20Actions.sol";
 
 interface IFYPool {
-    function sellBasePreview(uint128 baseIn) external view returns(uint128);
-    function sellBase(address to, uint128 min) external returns(uint128);    
-    function sellFYTokenPreview(uint128 fyTokenIn) external view  returns(uint128);
-    function sellFYToken(address to, uint128 min) external returns(uint128);
+    function sellBasePreview(uint128 baseIn) external view returns (uint128);
+
+    function sellBase(address to, uint128 min) external returns (uint128);
+
+    function sellFYTokenPreview(uint128 fyTokenIn) external view returns (uint128);
+
+    function sellFYToken(address to, uint128 min) external returns (uint128);
 }
 
 interface IFYToken {
@@ -24,6 +27,7 @@ contract VaultFYActions is Vault20Actions {
     using SafeERC20 for IERC20;
 
     error VaultFYActions__overflow();
+    error VaultFYActions__slippageExceedsMinAmountOut();
     error VaultFYActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
     error VaultFYActions__sellCollateralAndModifyDebt_zeroFYTokenAmount();
     error VaultFYActions__redeemCollateralAndModifyDebt_zeroFYTokenAmount();
@@ -32,6 +36,10 @@ contract VaultFYActions is Vault20Actions {
     uint256 public constant MAX = type(uint128).max;
 
     struct SwapParams {
+        // Min amount of asset out
+        uint256 minAssetOut;
+        // Amount to approve
+        uint256 approve;
         // Address of the yield space v2 pool
         address yieldSpacePool;
         // Underlier token address when adding collateral and `collateral` when removing
@@ -124,13 +132,25 @@ contract VaultFYActions is Vault20Actions {
         IFYToken(token).redeem(collateralizer, fyTokenAmount);
     }
 
-
-    function _buyFYToken(uint128 underlierAmount, address from, SwapParams calldata swapParams) internal returns(uint128) {
+    function _buyFYToken(
+        uint128 underlierAmount,
+        address from,
+        SwapParams calldata swapParams
+    ) internal returns (uint128) {
         address fyPool = swapParams.yieldSpacePool;
-        // Todo: Maybe adjust minFYToken to account for slippage
         uint128 minFYToken = IFYPool(fyPool).sellBasePreview(underlierAmount);
-        IERC20(swapParams.assetIn).safeTransferFrom(from, fyPool, underlierAmount);
-        return IFYPool(fyPool).sellBase(from, minFYToken);
+        if (swapParams.minAssetOut > minFYToken) revert VaultFYActions__slippageExceedsMinAmountOut();
+        if (swapParams.approve != 0) {
+            IERC20(swapParams.assetIn).approve(address(this), swapParams.approve);
+        }
+        address fromParsed;
+        if (from == address(0)) {
+            fromParsed = address(this);
+        } else {
+            fromParsed = from;
+        }
+        IERC20(swapParams.assetIn).safeTransferFrom(fromParsed, fyPool, underlierAmount);
+        return IFYPool(fyPool).sellBase(address(this), minFYToken);
     }
 
     function _sellFYToken(
@@ -140,26 +160,20 @@ contract VaultFYActions is Vault20Actions {
     ) internal returns (uint256) {
         address fyPool = swapParams.yieldSpacePool;
         uint128 minUnderlier = IFYPool(fyPool).sellFYTokenPreview(fyTokenAmount);
+        if (swapParams.minAssetOut > minUnderlier) revert VaultFYActions__slippageExceedsMinAmountOut();
         // Transfer from this contract to fypool
         IERC20(swapParams.assetIn).safeTransfer(fyPool, fyTokenAmount);
         return IFYPool(fyPool).sellFYToken(to, minUnderlier);
     }
 
     /// ======== View Methods ======== ///
-    function underlierToFYToken(
-        uint256 underlierAmount,
-        address yieldSpacePool
-    ) external view returns (uint256) {
+    function underlierToFYToken(uint256 underlierAmount, address yieldSpacePool) external view returns (uint256) {
         if (underlierAmount >= MAX) return 0;
-        return uint256(IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount)));
+        return IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount));
     }
 
-    function fyTokenToUnderlier(
-        uint256 fyTokenAmount,
-        address yieldSpacePool
-    ) external view returns (uint256) {
+    function fyTokenToUnderlier(uint256 fyTokenAmount, address yieldSpacePool) external view returns (uint256) {
         if (fyTokenAmount >= MAX) return 0;
         return uint256(IFYPool(yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount)));
     }
 }
-
