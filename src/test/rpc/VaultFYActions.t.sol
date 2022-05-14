@@ -18,7 +18,7 @@ import {toInt256, WAD, wdiv} from "fiat/utils/Math.sol";
 import {PRBProxyFactory} from "proxy/contracts/PRBProxyFactory.sol";
 import {PRBProxy} from "proxy/contracts/PRBProxy.sol";
 
-import {VaultFY} from "../../../../vaults/src/VaultFY.sol"; // todo replace path when fy vault pr is merged
+import {VaultFY} from "vaults/VaultFY.sol";
 import {VaultFactory} from "vaults/VaultFactory.sol";
 
 import {Hevm} from "../utils/Hevm.sol";
