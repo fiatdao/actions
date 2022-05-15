@@ -26,11 +26,15 @@ interface IFYToken {
 contract VaultFYActions is Vault20Actions {
     using SafeERC20 for IERC20;
 
-    error VaultFYActions__overflow();
-    error VaultFYActions__slippageExceedsMinAmountOut();
+    error VaultFYActions__buyCollateralAndModifyDebt_overflow();
     error VaultFYActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
+    error VaultFYActions__sellCollateralAndModifyDebt_overflow();
     error VaultFYActions__sellCollateralAndModifyDebt_zeroFYTokenAmount();
     error VaultFYActions__redeemCollateralAndModifyDebt_zeroFYTokenAmount();
+    error VaultFYActions__buyFYToken_slippageExceedsMinAmountOut();
+    error VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
+    error VaultFYActions__underlierToFYToken__overflow();
+    error VaultFYActions__fyTokenToUnderlier__overflow();
 
     // Yield Space Contracts use uint128 for all amounts
     uint256 public constant MAX = type(uint128).max;
@@ -65,10 +69,10 @@ contract VaultFYActions is Vault20Actions {
         SwapParams calldata swapParams
     ) public {
         if (underlierAmount == 0) revert VaultFYActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
-        if (underlierAmount >= MAX) revert VaultFYActions__overflow();
+        if (underlierAmount >= MAX) revert VaultFYActions__buyCollateralAndModifyDebt_overflow();
         // buy fyToken according to `swapParams` data and transfer tokens to be used as collateral into VaultFY
-        uint128 fyTokenAmount = _buyFYToken(uint128(underlierAmount), collateralizer, swapParams);
-        int256 deltaCollateral = toInt256(wdiv(uint256(fyTokenAmount), IVault(vault).tokenScale()));
+        uint256 fyTokenAmount = _buyFYToken(underlierAmount, collateralizer, swapParams);
+        int256 deltaCollateral = toInt256(wdiv(fyTokenAmount, IVault(vault).tokenScale()));
 
         // enter fyToken and collateralize position
         modifyCollateralAndDebt(
@@ -93,7 +97,7 @@ contract VaultFYActions is Vault20Actions {
         SwapParams calldata swapParams
     ) public {
         if (fyTokenAmount == 0) revert VaultFYActions__sellCollateralAndModifyDebt_zeroFYTokenAmount();
-        if (fyTokenAmount >= MAX) revert VaultFYActions__overflow();
+        if (fyTokenAmount >= MAX) revert VaultFYActions__sellCollateralAndModifyDebt_overflow();
         int256 deltaCollateral = -toInt256(wdiv(fyTokenAmount, IVault(vault).tokenScale()));
 
         // withdraw fyToken from the position
@@ -109,7 +113,7 @@ contract VaultFYActions is Vault20Actions {
         );
 
         // sell fyToken according to `swapParams`
-        _sellFYToken(uint128(fyTokenAmount), collateralizer, swapParams);
+        _sellFYToken(fyTokenAmount, collateralizer, swapParams);
     }
 
     function redeemCollateralAndModifyDebt(
@@ -133,13 +137,12 @@ contract VaultFYActions is Vault20Actions {
     }
 
     function _buyFYToken(
-        uint128 underlierAmount,
+        uint256 underlierAmount,
         address from,
         SwapParams calldata swapParams
-    ) internal returns (uint128) {
-        address fyPool = swapParams.yieldSpacePool;
-        uint128 minFYToken = IFYPool(fyPool).sellBasePreview(underlierAmount);
-        if (swapParams.minAssetOut > minFYToken) revert VaultFYActions__slippageExceedsMinAmountOut();
+    ) internal returns (uint256) {
+        uint128 minFYToken = IFYPool(swapParams.yieldSpacePool).sellBasePreview(uint128(underlierAmount));
+        if (swapParams.minAssetOut > minFYToken) revert VaultFYActions__buyFYToken_slippageExceedsMinAmountOut();
         if (swapParams.approve != 0) {
             IERC20(swapParams.assetIn).approve(address(this), swapParams.approve);
         }
@@ -149,31 +152,30 @@ contract VaultFYActions is Vault20Actions {
         } else {
             fromParsed = from;
         }
-        IERC20(swapParams.assetIn).safeTransferFrom(fromParsed, fyPool, underlierAmount);
-        return IFYPool(fyPool).sellBase(address(this), minFYToken);
+        IERC20(swapParams.assetIn).safeTransferFrom(fromParsed, swapParams.yieldSpacePool, underlierAmount);
+        return uint256(IFYPool(swapParams.yieldSpacePool).sellBase(address(this), minFYToken));
     }
 
     function _sellFYToken(
-        uint128 fyTokenAmount,
+        uint256 fyTokenAmount,
         address to,
         SwapParams calldata swapParams
     ) internal returns (uint256) {
-        address fyPool = swapParams.yieldSpacePool;
-        uint128 minUnderlier = IFYPool(fyPool).sellFYTokenPreview(fyTokenAmount);
-        if (swapParams.minAssetOut > minUnderlier) revert VaultFYActions__slippageExceedsMinAmountOut();
+        uint128 minUnderlier = IFYPool(swapParams.yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount));
+        if (swapParams.minAssetOut > minUnderlier) revert VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
         // Transfer from this contract to fypool
-        IERC20(swapParams.assetIn).safeTransfer(fyPool, fyTokenAmount);
-        return IFYPool(fyPool).sellFYToken(to, minUnderlier);
+        IERC20(swapParams.assetIn).safeTransfer(swapParams.yieldSpacePool, fyTokenAmount);
+        return uint256(IFYPool(swapParams.yieldSpacePool).sellFYToken(to, minUnderlier));
     }
 
     /// ======== View Methods ======== ///
     function underlierToFYToken(uint256 underlierAmount, address yieldSpacePool) external view returns (uint256) {
-        if (underlierAmount >= MAX) return 0;
-        return IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount));
+        if (underlierAmount >= MAX) revert VaultFYActions__underlierToFYToken__overflow();
+        return uint256(IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount)));
     }
 
     function fyTokenToUnderlier(uint256 fyTokenAmount, address yieldSpacePool) external view returns (uint256) {
-        if (fyTokenAmount >= MAX) return 0;
+        if (fyTokenAmount >= MAX) revert VaultFYActions__fyTokenToUnderlier__overflow();
         return uint256(IFYPool(yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount)));
     }
 }
