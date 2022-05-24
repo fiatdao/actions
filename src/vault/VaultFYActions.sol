@@ -37,35 +37,36 @@ contract VaultFYActions is Vault20Actions {
     error VaultFYActions__redeemCollateralAndModifyDebt_zeroFYTokenAmount();
     error VaultFYActions__buyFYToken_slippageExceedsMinAmountOut();
     error VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
-    error VaultFYActions__underlierToFYToken__overflow();
-    error VaultFYActions__fyTokenToUnderlier__overflow();
+    error VaultFYActions__underlierToFYToken_overflow();
+    error VaultFYActions__fyTokenToUnderlier_overflow();
 
     /// ======== Types ======== ///
 
     // Swap data
     struct SwapParams {
-        // Min amount of asset out
+        // Min amount of asset out [tokenScale for buying, underlierScale for selling]
         uint256 minAssetOut;
-        // Address of the yield space v2 pool
+        // Address of the Yield Space v2 pool
         address yieldSpacePool;
-        // Underlier token address when adding collateral and `collateral` when removing
+        // Address of the underlier (underlierToken) when buying, Address of the fyToken (token) when selling
         address assetIn;
-        // Collateral token address when adding collateral and `underlier` when removing
+        // Address of the fyToken (token) when buying, Address of underlier (underlierToken) when selling
         address assetOut;
     }
 
     constructor(
-        address codex_,
-        address moneta_,
-        address fiat_,
-        address publican_
-    ) Vault20Actions(codex_, moneta_, fiat_, publican_) {}
+        address codex,
+        address moneta,
+        address fiat,
+        address publican
+    ) Vault20Actions(codex, moneta, fiat, publican) {}
 
     /// ======== Position Management ======== ///
 
     /// @notice Buys fyTokens from underliers before it modifies a Position's collateral
     /// and debt balances and mints/burns FIAT using the underlier token.
-    /// The underlier is swapped to fyTokens and used as collateral. Buy must be before fyToken maturity.
+    /// The underlier is swapped to fyTokens and used as collateral.
+    /// fyTokens can only be bought up to the fyTokens maturity, once matured this method will revert.
     /// @dev The user needs to previously approve the UserProxy for spending underlier tokens,
     /// collateral tokens, or FIAT tokens. If `position` is not the UserProxy, the `position` owner
     /// needs grant a delegate to UserProxy via Codex.
@@ -107,7 +108,8 @@ contract VaultFYActions is Vault20Actions {
     }
 
     /// @notice Sells fyTokens for underliers after it modifies a Position's collateral and debt balances
-    /// and mints/burns FIAT using the underlier token. fyTokens cannot be sold after maturity, they should be redeemed.
+    /// and mints/burns FIAT using the underlier token.
+    /// fyTokens can only be sold up to the fyTokens maturity, once matured this method will revert.
     /// @dev The user needs to previously approve the UserProxy for spending collateral tokens or FIAT tokens
     /// If `position` is not the UserProxy, the `position` owner needs grant a delegate to UserProxy via Codex
     /// @param vault Address of the Vault
@@ -149,7 +151,8 @@ contract VaultFYActions is Vault20Actions {
     }
 
     /// @notice Redeems fyTokens for underliers after it modifies a Position's collateral
-    /// and debt balances and mints/burns FIAT using the underlier token. Fails if fyToken hasn't matured yet.
+    /// and debt balances and mints/burns FIAT using the underlier token.
+    /// fyTokens can only be redeemed once they have matured, before maturty this method will revert.
     /// @dev The user needs to previously approve the UserProxy for spending collateral tokens or FIAT tokens
     /// If `position` is not the UserProxy, the `position` owner needs grant a delegate to UserProxy via Codex
     /// @param vault Address of the Vault
@@ -185,7 +188,7 @@ contract VaultFYActions is Vault20Actions {
         address from,
         SwapParams calldata swapParams
     ) internal returns (uint256) {
-        // Asks Yield Math to calculate the expected amount of fyToken received for underlier
+        // calculate the amount of fyToken to receive for underlier (will revert if fyToken has matured)
         uint128 minFYToken = IFYPool(swapParams.yieldSpacePool).sellBasePreview(uint128(underlierAmount));
         if (swapParams.minAssetOut > minFYToken) revert VaultFYActions__buyFYToken_slippageExceedsMinAmountOut();
 
@@ -206,7 +209,7 @@ contract VaultFYActions is Vault20Actions {
         address to,
         SwapParams calldata swapParams
     ) internal returns (uint256) {
-        // Asks Yield Math to calculate the expected amount of underlier received for fyToken
+        // calculate the amount of underliers to receive for fyTokens (will revert if fyToken has matured)
         uint128 minUnderlier = IFYPool(swapParams.yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount));
         if (swapParams.minAssetOut > minUnderlier) revert VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
         // Transfer from this contract to fypool
@@ -217,20 +220,20 @@ contract VaultFYActions is Vault20Actions {
     /// ======== View Methods ======== ///
 
     /// @notice Returns an amount of fyToken for a given an amount of the underlier token (e.g. USDC)
-    /// @param underlierAmount Amount of underlier to be used to by fyToken
-    /// @param yieldSpacePool Address of the underlier-fyToken LP
+    /// @param underlierAmount Amount of underlier to be used to by fyToken [underlierToken]
+    /// @param yieldSpacePool Address of the corresponding YieldSpace pool
     /// @return Amount of fyToken [tokenScale]
     function underlierToFYToken(uint256 underlierAmount, address yieldSpacePool) external view returns (uint256) {
-        if (underlierAmount >= type(uint128).max) revert VaultFYActions__underlierToFYToken__overflow();
+        if (underlierAmount >= type(uint128).max) revert VaultFYActions__underlierToFYToken_overflow();
         return uint256(IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount)));
     }
 
     /// @notice Returns an amount of underlier for a given an amount of the fyToken
-    /// @param fyTokenAmount Amount of fyToken to be traded for underlier
-    /// @param yieldSpacePool Address of the underlier-fyToken LP
+    /// @param fyTokenAmount Amount of fyToken to be traded for underlier [tokenScale]
+    /// @param yieldSpacePool Address of the corresponding YieldSpace pool
     /// @return Amount of underlier expected on trade [underlierScale]
     function fyTokenToUnderlier(uint256 fyTokenAmount, address yieldSpacePool) external view returns (uint256) {
-        if (fyTokenAmount >= type(uint128).max) revert VaultFYActions__fyTokenToUnderlier__overflow();
+        if (fyTokenAmount >= type(uint128).max) revert VaultFYActions__fyTokenToUnderlier_overflow();
         return uint256(IFYPool(yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount)));
     }
 }

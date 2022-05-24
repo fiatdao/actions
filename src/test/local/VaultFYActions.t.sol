@@ -103,16 +103,14 @@ contract VaultEPTActions_UnitTest is DSTest {
     }
 
     function test_underlierToFYTokenOverflow() public {
-        uint256 MAX = type(uint128).max;
-        bytes memory customError = abi.encodeWithSignature("VaultFYActions__underlierToFYToken__overflow()");
+        bytes memory customError = abi.encodeWithSignature("VaultFYActions__underlierToFYToken_overflow()");
         hevm.expectRevert(customError);
-        VaultActions.underlierToFYToken(MAX, address(yieldSpace));
+        VaultActions.underlierToFYToken(type(uint128).max, address(yieldSpace));
     }
 
     function test_fyTokenToUnderlierOverflow() public {
-        uint256 MAX = type(uint128).max;
-        bytes memory customError = abi.encodeWithSignature("VaultFYActions__fyTokenToUnderlier__overflow()");
+        bytes memory customError = abi.encodeWithSignature("VaultFYActions__fyTokenToUnderlier_overflow()");
         hevm.expectRevert(customError);
-        VaultActions.fyTokenToUnderlier(MAX, address(yieldSpace));
+        VaultActions.fyTokenToUnderlier(type(uint128).max, address(yieldSpace));
     }
 }
