@@ -65,7 +65,7 @@ contract VaultFYActions is Vault20Actions {
 
     /// @notice Buys fyTokens from underliers before it modifies a Position's collateral
     /// and debt balances and mints/burns FIAT using the underlier token.
-    /// The underlier is swapped to fyTokens and used as collateral.
+    /// The underlier is swapped to fyTokens and used as collateral. Buy must be before fyToken maturity.
     /// @dev The user needs to previously approve the UserProxy for spending underlier tokens,
     /// collateral tokens, or FIAT tokens. If `position` is not the UserProxy, the `position` owner
     /// needs grant a delegate to UserProxy via Codex.
