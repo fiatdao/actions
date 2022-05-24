@@ -46,8 +46,6 @@ contract VaultFYActions is Vault20Actions {
     struct SwapParams {
         // Min amount of asset out
         uint256 minAssetOut;
-        // Amount for the proxy to approve to allow safeTransferFrom
-        uint256 approve;
         // Address of the yield space v2 pool
         address yieldSpacePool;
         // Underlier token address when adding collateral and `collateral` when removing
@@ -190,18 +188,15 @@ contract VaultFYActions is Vault20Actions {
         // Asks Yield Math to calculate the expected amount of fyToken received for underlier
         uint128 minFYToken = IFYPool(swapParams.yieldSpacePool).sellBasePreview(uint128(underlierAmount));
         if (swapParams.minAssetOut > minFYToken) revert VaultFYActions__buyFYToken_slippageExceedsMinAmountOut();
-        if (swapParams.approve != 0) {
-            // Approval for when the proxy holds the underlier so safeTransferFrom can be called
-            IERC20(swapParams.assetIn).approve(address(this), swapParams.approve);
+
+        // if `from` is set to an external address then transfer amount to the proxy first
+        // requires `from` to have set an allowance for the proxy
+        if (from != address(0) && from != address(this)) {
+            IERC20(swapParams.assetIn).safeTransferFrom(from, address(this), underlierAmount);
         }
-        address fromParsed;
-        if (from == address(0)) {
-            fromParsed = address(this);
-        } else {
-            fromParsed = from;
-        }
+
         // Performs transfer of underlier into yieldspace pool
-        IERC20(swapParams.assetIn).safeTransferFrom(fromParsed, swapParams.yieldSpacePool, underlierAmount);
+        IERC20(swapParams.assetIn).safeTransfer(swapParams.yieldSpacePool, underlierAmount);
         // Sells underlier for fyToken. fyToken are transferred to the proxy to be entered into a vault
         return uint256(IFYPool(swapParams.yieldSpacePool).sellBase(address(this), minFYToken));
     }

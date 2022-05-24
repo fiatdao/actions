@@ -169,14 +169,12 @@ contract VaultFYActions_RPC_tests is DSTest {
     function _getSwapParams(
         address assetIn,
         address assetOut,
-        uint256 minOutput,
-        uint256 approveAmount
+        uint256 minOutput
     ) internal view returns (VaultFYActions.SwapParams memory swapParams) {
         swapParams.yieldSpacePool = fyUSDC04LP;
         swapParams.assetIn = assetIn;
         swapParams.assetOut = assetOut;
         swapParams.minAssetOut = minOutput;
-        swapParams.approve = approveAmount;
     }
 
     function setUp() public {
@@ -254,7 +252,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - amount);
@@ -280,7 +278,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(kakaroto)), kakarotoInitialBalance - amount);
@@ -303,7 +301,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, amount)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), userProxyInitialBalance - amount);
@@ -326,7 +324,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             amount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, amount)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), userProxyInitialBalance - amount);
@@ -345,7 +343,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -355,12 +353,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 amount = 500 * ONE_USDC;
         uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
-        VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC04,
-            address(underlierUSDC),
-            expectedDelta,
-            0
-        );
+        VaultFYActions.SwapParams memory swapParams = _getSwapParams(fyUSDC04, address(underlierUSDC), expectedDelta);
 
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), me, address(0), amount, 0, swapParams);
 
@@ -384,7 +377,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 kakarotoInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
@@ -394,12 +387,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         uint256 amount = 500 * ONE_USDC;
         uint256 expectedDelta = vaultActions.fyTokenToUnderlier(amount, fyUSDC04LP);
 
-        VaultFYActions.SwapParams memory swapParams = _getSwapParams(
-            fyUSDC04,
-            address(underlierUSDC),
-            expectedDelta,
-            0
-        );
+        VaultFYActions.SwapParams memory swapParams = _getSwapParams(fyUSDC04, address(underlierUSDC), expectedDelta);
 
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), address(kakaroto), address(0), amount, 0, swapParams);
 
@@ -419,7 +407,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -449,7 +437,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
@@ -479,7 +467,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = fiat.balanceOf(me);
@@ -501,7 +489,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(0),
             testAmount,
             0,
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 kakarotoInitialBalance = fiat.balanceOf(address(kakaroto));
@@ -530,7 +518,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = fiat.balanceOf(me);
@@ -552,7 +540,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         fiat.transfer(address(kakaroto), 500 * WAD);
@@ -583,7 +571,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         fiat.transfer(address(userProxy), 500 * WAD);
@@ -607,7 +595,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         fiat.transfer(address(userProxy), 500 * WAD);
@@ -645,7 +633,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - tokenAmount);
@@ -678,7 +666,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(kakaroto)), meInitialBalance - tokenAmount);
@@ -711,7 +699,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, previewOut)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), meInitialBalance - tokenAmount);
@@ -744,7 +732,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, previewOut)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(address(userProxy)), meInitialBalance - tokenAmount);
@@ -775,7 +763,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             address(kakaroto),
             tokenAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         assertEq(underlierUSDC.balanceOf(me), meInitialBalance - tokenAmount);
@@ -799,7 +787,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -814,8 +802,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
             fyUSDC04,
             address(underlierUSDC),
-            expectedDelta / 2,
-            expectedDelta
+            expectedDelta / 2
         );
 
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), me, me, amount, -toInt256(100 * WAD), swapParams);
@@ -839,7 +826,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(address(kakaroto));
@@ -854,8 +841,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
             fyUSDC04,
             address(underlierUSDC),
-            expectedDelta / 2,
-            expectedDelta
+            expectedDelta / 2
         );
 
         _sellCollateralAndModifyDebt(
@@ -886,7 +872,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -903,8 +889,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
             fyUSDC04,
             address(underlierUSDC),
-            expectedDelta / 2,
-            expectedDelta
+            expectedDelta / 2
         );
 
         _sellCollateralAndModifyDebt(
@@ -935,7 +920,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -952,8 +937,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
             fyUSDC04,
             address(underlierUSDC),
-            expectedDelta / 2,
-            expectedDelta
+            expectedDelta / 2
         );
 
         _sellCollateralAndModifyDebt(address(vaultFY_USDC06), me, address(0), amount, -toInt256(100 * WAD), swapParams);
@@ -977,7 +961,7 @@ contract VaultFYActions_RPC_tests is DSTest {
             me,
             testAmount,
             toInt256(500 * WAD),
-            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut, 0)
+            _getSwapParams(address(underlierUSDC), fyUSDC04, previewOut)
         );
 
         uint256 meInitialBalance = underlierUSDC.balanceOf(me);
@@ -994,8 +978,7 @@ contract VaultFYActions_RPC_tests is DSTest {
         VaultFYActions.SwapParams memory swapParams = _getSwapParams(
             fyUSDC04,
             address(underlierUSDC),
-            expectedDelta / 2,
-            expectedDelta
+            expectedDelta / 2
         );
 
         _sellCollateralAndModifyDebt(
