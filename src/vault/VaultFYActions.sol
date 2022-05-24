@@ -36,9 +36,6 @@ contract VaultFYActions is Vault20Actions {
     error VaultFYActions__underlierToFYToken__overflow();
     error VaultFYActions__fyTokenToUnderlier__overflow();
 
-    // Yield Space Contracts use uint128 for all amounts
-    uint256 public constant MAX = type(uint128).max;
-
     struct SwapParams {
         // Min amount of asset out
         uint256 minAssetOut;
@@ -69,7 +66,7 @@ contract VaultFYActions is Vault20Actions {
         SwapParams calldata swapParams
     ) public {
         if (underlierAmount == 0) revert VaultFYActions__buyCollateralAndModifyDebt_zeroUnderlierAmount();
-        if (underlierAmount >= MAX) revert VaultFYActions__buyCollateralAndModifyDebt_overflow();
+        if (underlierAmount >= type(uint128).max) revert VaultFYActions__buyCollateralAndModifyDebt_overflow();
         // buy fyToken according to `swapParams` data and transfer tokens to be used as collateral into VaultFY
         uint256 fyTokenAmount = _buyFYToken(underlierAmount, collateralizer, swapParams);
         int256 deltaCollateral = toInt256(wdiv(fyTokenAmount, IVault(vault).tokenScale()));
@@ -97,7 +94,7 @@ contract VaultFYActions is Vault20Actions {
         SwapParams calldata swapParams
     ) public {
         if (fyTokenAmount == 0) revert VaultFYActions__sellCollateralAndModifyDebt_zeroFYTokenAmount();
-        if (fyTokenAmount >= MAX) revert VaultFYActions__sellCollateralAndModifyDebt_overflow();
+        if (fyTokenAmount >= type(uint128).max) revert VaultFYActions__sellCollateralAndModifyDebt_overflow();
         int256 deltaCollateral = -toInt256(wdiv(fyTokenAmount, IVault(vault).tokenScale()));
 
         // withdraw fyToken from the position
@@ -170,12 +167,12 @@ contract VaultFYActions is Vault20Actions {
 
     /// ======== View Methods ======== ///
     function underlierToFYToken(uint256 underlierAmount, address yieldSpacePool) external view returns (uint256) {
-        if (underlierAmount >= MAX) revert VaultFYActions__underlierToFYToken__overflow();
+        if (underlierAmount >= type(uint128).max) revert VaultFYActions__underlierToFYToken__overflow();
         return uint256(IFYPool(yieldSpacePool).sellBasePreview(uint128(underlierAmount)));
     }
 
     function fyTokenToUnderlier(uint256 fyTokenAmount, address yieldSpacePool) external view returns (uint256) {
-        if (fyTokenAmount >= MAX) revert VaultFYActions__fyTokenToUnderlier__overflow();
+        if (fyTokenAmount >= type(uint128).max) revert VaultFYActions__fyTokenToUnderlier__overflow();
         return uint256(IFYPool(yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount)));
     }
 }
