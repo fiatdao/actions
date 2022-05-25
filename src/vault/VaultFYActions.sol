@@ -36,7 +36,7 @@ contract VaultFYActions is Vault20Actions {
     error VaultFYActions__sellCollateralAndModifyDebt_zeroFYTokenAmount();
     error VaultFYActions__redeemCollateralAndModifyDebt_zeroFYTokenAmount();
     error VaultFYActions__buyFYToken_overflow();
-    error VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
+    error VaultFYActions__sellFYToken_overflow();
     error VaultFYActions__underlierToFYToken_overflow();
     error VaultFYActions__fyTokenToUnderlier_overflow();
 
@@ -208,12 +208,10 @@ contract VaultFYActions is Vault20Actions {
         address to,
         SwapParams calldata swapParams
     ) internal returns (uint256) {
-        // calculate the amount of underliers to receive for fyTokens (will revert if fyToken has matured)
-        uint128 minUnderlier = IFYPool(swapParams.yieldSpacePool).sellFYTokenPreview(uint128(fyTokenAmount));
-        if (swapParams.minAssetOut > minUnderlier) revert VaultFYActions__sellFYToken_slippageExceedsMinAmountOut();
+        if (swapParams.minAssetOut >= type(uint128).max) revert VaultFYActions__sellFYToken_overflow();
         // Transfer from this contract to fypool
         IERC20(swapParams.assetIn).safeTransfer(swapParams.yieldSpacePool, fyTokenAmount);
-        return uint256(IFYPool(swapParams.yieldSpacePool).sellFYToken(to, minUnderlier));
+        return uint256(IFYPool(swapParams.yieldSpacePool).sellFYToken(to, uint128(swapParams.minAssetOut)));
     }
 
     /// ======== View Methods ======== ///
