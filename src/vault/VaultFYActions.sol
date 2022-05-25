@@ -191,14 +191,14 @@ contract VaultFYActions is Vault20Actions {
         // Yield Space Contracts use uint128 for all amounts
         if (swapParams.minAssetOut >= type(uint128).max) revert VaultFYActions__buyFYToken_overflow();
 
-        // if `from` is set to an external address then transfer amount to the proxy first
+        // if `from` is set to an external address then transfer directly to the Yield LP
         // requires `from` to have set an allowance for the proxy
         if (from != address(0) && from != address(this)) {
-            IERC20(swapParams.assetIn).safeTransferFrom(from, address(this), underlierAmount);
+            IERC20(swapParams.assetIn).safeTransferFrom(from, swapParams.yieldSpacePool, underlierAmount);
+        } else {
+            IERC20(swapParams.assetIn).safeTransfer(swapParams.yieldSpacePool, underlierAmount);
         }
 
-        // Performs transfer of underlier into yieldspace pool
-        IERC20(swapParams.assetIn).safeTransfer(swapParams.yieldSpacePool, underlierAmount);
         // Sells underlier for fyToken. fyToken are transferred to the proxy to be entered into a vault
         return uint256(IFYPool(swapParams.yieldSpacePool).sellBase(address(this), uint128(swapParams.minAssetOut)));
     }
