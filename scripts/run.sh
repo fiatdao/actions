@@ -19,7 +19,7 @@ if [[ ! " ${networks[*]} " =~ " $1 " ]]; then
 fi
 
 if [ "$1" == "local" ]; then
-  forge test --ffi --chain-id 99 --match-path $(pwd)/src/test/local --fork-url http://localhost:8545
+  forge test --ffi --chain-id 99 --match-path src/test/local
 elif [ "$1" == "mainnet" ]; then
   forge test --chain-id 99 --fork-url https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY} --fork-block-number 13700000
 else
