@@ -16,4 +16,6 @@ abstract contract Hevm {
     ) public virtual;
 
     function ffi(string[] calldata) external virtual returns (bytes memory);
+
+    function expectRevert(bytes calldata) external virtual;
 }

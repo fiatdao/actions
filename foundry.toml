@@ -10,7 +10,7 @@ optimizer_runs = 8000
 # Gas reporting
 gas_reports = ["*"]
 
-verbosity = 1
+verbosity = 3
 
 sender = '0xf1A7dA0000000000000000000000000000000000'
 tx_origin = '0xf1A7dA0000000000000000000000000000000000'
