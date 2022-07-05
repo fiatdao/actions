@@ -170,7 +170,7 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         return CALLBACK_SUCCESS;
     }
 
-    function sellCollateralAndIncreaseLever(
+    function sellCollateralAndDecreaseLever(
         address vault,
         address position,
         address collateralizer,
@@ -193,7 +193,7 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         flash.creditFlashLoan(ICreditFlashBorrower(address(this)), deltaNormalDebt, data);
     }
 
-    /// @notice `sellCollateralAndIncreaseLever` flash loan callback
+    /// @notice `sellCollateralAndDecreaseLever` flash loan callback
     function onCreditFlashLoan(
         address initiator,
         uint256 amount,
