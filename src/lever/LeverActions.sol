@@ -101,6 +101,8 @@ abstract contract LeverActions {
     /// @notice Publican
     IPublican public immutable publican;
 
+    address internal immutable self = address(this);
+
     // FIAT - DAI - USDC Balancer Pool
     bytes32 public immutable fiatPoolId;
     address public immutable fiatBalancerVault;
@@ -129,6 +131,8 @@ abstract contract LeverActions {
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20(tokens[i]).approve(fiatBalancerVault_, type(uint256).max);
         }
+
+        fiat.approve(moneta_, type(uint256).max);
     }
 
     /// @notice Sets `amount` as the allowance of `spender` over the UserProxy's FIAT
@@ -181,21 +185,21 @@ abstract contract LeverActions {
         uint256 amount
     ) public virtual;
 
-    function increaseCollateralAndDebt(
+    function addCollateralAndDebt(
         address vault,
         address token,
         uint256 tokenId,
         address position,
         address collateralizer,
         address creditor,
-        uint256 deltaCollateral,
-        uint256 deltaDebt
+        uint256 addCollateral,
+        uint256 addDebt
     ) public {
         // update the interest rate accumulator in Codex for the vault
-        if (deltaDebt != 0) publican.collect(vault);
+        if (addDebt != 0) publican.collect(vault);
 
         // transfer tokens to be used as collateral into Vault
-        enterVault(vault, token, tokenId, collateralizer, wmul(uint256(deltaCollateral), IVault(vault).tokenScale()));
+        enterVault(vault, token, tokenId, collateralizer, wmul(uint256(addCollateral), IVault(vault).tokenScale()));
 
         // update collateral and debt balanaces
         (, uint256 rate, , ) = codex.vaults(vault);
@@ -205,31 +209,23 @@ abstract contract LeverActions {
             position,
             address(this),
             address(this),
-            toInt256(deltaCollateral),
-            toInt256(wdiv(deltaDebt, rate))
+            toInt256(addCollateral),
+            toInt256(wdiv(addDebt, rate))
         );
 
         // redeem newly generated internal credit for FIAT
-        exitMoneta(creditor, deltaDebt);
+        exitMoneta(creditor, addDebt);
     }
 
-    function decreaseCollateralAndDebt(
+    function subCollateralAndDebt(
         address vault,
         address token,
         uint256 tokenId,
         address position,
         address collateralizer,
-        address creditor,
-        uint256 deltaCollateral,
-        uint256 deltaNormalDebt
+        uint256 subCollateral,
+        uint256 subNormalDebt
     ) public {
-        // update the interest rate accumulator in Codex for the vault
-        if (deltaNormalDebt != 0) publican.collect(vault);
-
-        // add due interest from normal debt
-        (, uint256 rate, , ) = codex.vaults(vault);
-        enterMoneta(creditor, wmul(rate, deltaNormalDebt));
-
         // update collateral and debt balanaces
         codex.modifyCollateralAndDebt(
             vault,
@@ -237,12 +233,12 @@ abstract contract LeverActions {
             position,
             address(this),
             address(this),
-            toInt256(deltaCollateral),
-            toInt256(deltaNormalDebt)
+            -toInt256(subCollateral),
+            -toInt256(subNormalDebt)
         );
 
         // withdraw tokens not be used as collateral anymore from Vault
-        exitVault(vault, token, tokenId, collateralizer, wmul(deltaCollateral, IVault(vault).tokenScale()));
+        exitVault(vault, token, tokenId, collateralizer, wmul(subCollateral, IVault(vault).tokenScale()));
     }
 
     function _sellFIATExactIn(SellFIATSwapParams memory params, uint256 exactAmountIn) internal returns (uint256) {
@@ -260,6 +256,7 @@ abstract contract LeverActions {
             payable(address(this)),
             false
         );
+
         return IBalancerVault(fiatBalancerVault).swap(singleSwap, funds, params.minAmountOut, params.deadline);
     }
 
@@ -278,6 +275,7 @@ abstract contract LeverActions {
             payable(address(this)),
             false
         );
+
         return IBalancerVault(fiatBalancerVault).swap(singleSwap, funds, params.maxAmountIn, params.deadline);
     }
 }

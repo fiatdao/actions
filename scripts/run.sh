@@ -21,7 +21,8 @@ fi
 if [ "$1" == "local" ]; then
   forge test --ffi --chain-id 99 --match-path src/test/local
 elif [ "$1" == "mainnet" ]; then
-  forge test --chain-id 99 --fork-url https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY} --fork-block-number 13700000
+  forge test --chain-id 99 --fork-url https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY} --fork-block-number 13700000 --no-match-path src/test/rpc/LeverEPTActions.t.sol
+  forge test --chain-id 99 --fork-url https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY} --fork-block-number 15100000 --match-path src/test/rpc/LeverEPTActions.t.sol
 else
   ETH_RPC_URL=https://eth-$1.alchemyapi.io/v2/${ALCHEMY_API_KEY}
   forge test --fork-url $ETH_RPC_URL

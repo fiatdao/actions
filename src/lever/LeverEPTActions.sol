@@ -36,19 +36,19 @@ interface ITranche {
 // WARNING: These functions meant to be used as a a library for a PRBProxy. Some are unsafe if you call them directly.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-/// @title EPTLeverActions
+/// @title LeverEPTActions
 /// @notice A set of vault actions for modifying positions collateralized by Element Finance pTokens
-contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashBorrower {
+contract LeverEPTActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashBorrower {
     using SafeERC20 for IERC20;
 
     /// ======== Custom Errors ======== ///
 
-    error EPTLeverActions__onFlashLoan_unknownInitiator();
-    error EPTLeverActions__onFlashLoan_unknownToken();
-    error EPTLeverActions__onFlashLoan_nonZeroFee();
-    error EPTLeverActions__onCreditFlashLoan_unknownInitiator();
-    error EPTLeverActions__onCreditFlashLoan_nonZeroFee();
-    error EPTLeverActions__solveTradeInvariant_tokenMismatch();
+    error LeverEPTActions__onFlashLoan_unknownSender();
+    error LeverEPTActions__onFlashLoan_unknownToken();
+    error LeverEPTActions__onFlashLoan_nonZeroFee();
+    error LeverEPTActions__onCreditFlashLoan_unknownSender();
+    error LeverEPTActions__onCreditFlashLoan_nonZeroFee();
+    error LeverEPTActions__solveTradeInvariant_tokenMismatch();
 
     /// ======== Types ======== ///
 
@@ -65,16 +65,13 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         uint256 minAmountOut;
         // Timestamp at which swap must be confirmed by [seconds]
         uint256 deadline;
-        // Amount of `assetIn` to approve for `balancerVault` for swapping `assetIn` for `assetOut`
-        uint256 approve;
     }
 
     struct FIATFlashLoanData {
         address vault;
         address token;
         address position;
-        // Amount of underlier deposited by the user up front
-        uint256 underlierAmount;
+        uint256 upfrontUnderliers;
         SellFIATSwapParams fiatSwapParams;
         PTokenSwapParams swapParams;
     }
@@ -84,8 +81,7 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         address token;
         address position;
         address collateralizer;
-        // Amount of pTokens to be withdrawn
-        uint256 pTokenAmount;
+        uint256 subPTokenAmount;
         BuyFIATSwapParams fiatSwapParams;
         PTokenSwapParams swapParams;
     }
@@ -108,64 +104,72 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         address vault,
         address position,
         address collateralizer,
-        uint256 underlierAmount,
-        uint256 deltaNormalDebt,
+        uint256 upfrontUnderliers,
+        uint256 addDebt,
         SellFIATSwapParams calldata fiatSwapParams,
         PTokenSwapParams calldata swapParams
     ) public {
-        // if `collateralizer` is set to an external address then transfer amount to the proxy first
+        // if `collateralizer` is set to an external address then transfer the amount directly to Action contract
         // requires `collateralizer` to have set an allowance for the proxy
-        if (collateralizer != address(0) && collateralizer != address(this)) {
-            IERC20(swapParams.assetIn).safeTransferFrom(collateralizer, address(this), underlierAmount);
+        if (collateralizer == address(this) || collateralizer == address(0)) {
+            IERC20(swapParams.assetIn).safeTransfer(address(self), upfrontUnderliers);
+        } else {
+            IERC20(swapParams.assetIn).safeTransferFrom(collateralizer, address(self), upfrontUnderliers);
         }
 
+        codex.grantDelegate(self);
+
         bytes memory data = abi.encode(
-            FIATFlashLoanData(vault, swapParams.assetOut, position, underlierAmount, fiatSwapParams, swapParams)
+            FIATFlashLoanData(vault, swapParams.assetOut, position, upfrontUnderliers, fiatSwapParams, swapParams)
         );
-        flash.flashLoan(IERC3156FlashBorrower(address(this)), address(fiat), deltaNormalDebt, data);
+
+        flash.flashLoan(IERC3156FlashBorrower(address(self)), address(fiat), addDebt, data);
+
+        codex.revokeDelegate(self);
     }
 
     /// @notice `buyCollateralAndIncreaseLever` flash loan callback
+    /// @dev Executed in the context of LeverEPTActions instead of the Proxy
     function onFlashLoan(
-        address initiator,
+        address, /* initiator */
         address token,
-        uint256 amount,
+        uint256 borrowed,
         uint256 fee,
         bytes calldata data
     ) external override returns (bytes32) {
-        if (initiator != address(this)) revert EPTLeverActions__onFlashLoan_unknownInitiator();
-        if (token != address(fiat)) revert EPTLeverActions__onFlashLoan_unknownToken();
-        if (fee != 0) revert EPTLeverActions__onFlashLoan_nonZeroFee();
+        if (msg.sender != address(flash)) revert LeverEPTActions__onFlashLoan_unknownSender();
+        if (token != address(fiat)) revert LeverEPTActions__onFlashLoan_unknownToken();
+        if (fee != 0) revert LeverEPTActions__onFlashLoan_nonZeroFee();
 
         FIATFlashLoanData memory params = abi.decode(data, (FIATFlashLoanData));
 
-        uint256 deltaCollateral;
+        uint256 addCollateral;
         {
-            // 2. sell fiat for underlier
-            uint256 underlierAmount = _sellFIATExactIn(params.fiatSwapParams, amount);
+            // sell fiat for underlier
+            uint256 underlierAmount = _sellFIATExactIn(params.fiatSwapParams, borrowed);
 
-            // 3. sum underlier from sender and underliers from fiat swap
-            underlierAmount = add(underlierAmount, params.underlierAmount);
+            // sum underlier from sender and underliers from fiat swap
+            underlierAmount = add(underlierAmount, params.upfrontUnderliers);
 
-            // 4. sell underlier for collateral token
-            uint256 pTokenAmount = _buyPToken(underlierAmount, params.swapParams);
-            deltaCollateral = wdiv(pTokenAmount, IVault(params.vault).tokenScale());
+            // sell underlier for collateral token
+            uint256 pTokenSwapped = _buyPToken(underlierAmount, params.swapParams);
+            addCollateral = wdiv(pTokenSwapped, IVault(params.vault).tokenScale());
         }
 
-        // 5. create position and mint fiat
-        increaseCollateralAndDebt(
+        // update position and mint fiat
+        addCollateralAndDebt(
             params.vault,
             params.token,
             0,
             params.position,
             address(this),
             address(this),
-            deltaCollateral,
-            amount
+            addCollateral,
+            borrowed
         );
 
-        // 6. payback
-        fiat.approve(address(flash), amount);
+        // payback
+        fiat.approve(address(flash), borrowed);
 
         return CALLBACK_SUCCESS;
     }
@@ -174,73 +178,86 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
         address vault,
         address position,
         address collateralizer,
-        uint256 pTokenAmount,
-        uint256 deltaNormalDebt,
+        uint256 subPTokenAmount,
+        uint256 subNormalDebt,
         BuyFIATSwapParams calldata fiatSwapParams,
         PTokenSwapParams calldata swapParams
     ) public {
+        codex.grantDelegate(self);
+
         bytes memory data = abi.encode(
             CreditFlashLoanData(
                 vault,
                 swapParams.assetIn,
                 position,
                 collateralizer,
-                pTokenAmount,
+                subPTokenAmount,
                 fiatSwapParams,
                 swapParams
             )
         );
-        flash.creditFlashLoan(ICreditFlashBorrower(address(this)), deltaNormalDebt, data);
+
+        // update the interest rate accumulator in Codex for the vault
+        if (subNormalDebt != 0) publican.collect(vault);
+        // add due interest from normal debt
+        (, uint256 rate, , ) = codex.vaults(vault);
+        flash.creditFlashLoan(ICreditFlashBorrower(address(self)), wmul(rate, subNormalDebt), data);
+
+        codex.revokeDelegate(self);
     }
 
     /// @notice `sellCollateralAndDecreaseLever` flash loan callback
+    /// @dev Executed in the context of LeverEPTActions instead of the Proxy
     function onCreditFlashLoan(
         address initiator,
-        uint256 amount,
+        uint256 borrowed,
         uint256 fee,
         bytes calldata data
     ) external override returns (bytes32) {
-        if (initiator != address(this)) revert EPTLeverActions__onCreditFlashLoan_unknownInitiator();
-        if (fee != 0) revert EPTLeverActions__onCreditFlashLoan_nonZeroFee();
+        if (msg.sender != address(flash)) revert LeverEPTActions__onCreditFlashLoan_unknownSender();
+        if (fee != 0) revert LeverEPTActions__onCreditFlashLoan_nonZeroFee();
 
         CreditFlashLoanData memory params = abi.decode(data, (CreditFlashLoanData));
 
-        // 1. pay back debt
-        decreaseCollateralAndDebt(
+        // pay back debt of position
+        subCollateralAndDebt(
             params.vault,
             params.token,
             0,
             params.position,
             address(this),
-            address(this),
-            params.pTokenAmount,
-            amount
+            wdiv(params.subPTokenAmount, IVault(params.vault).tokenScale()),
+            borrowed
         );
 
-        // 2. sell collateral for underlier
-        uint256 underlierAmount = _sellPToken(params.pTokenAmount, address(this), params.swapParams);
+        // sell collateral for underlier
+        uint256 underlierAmount = _sellPToken(params.subPTokenAmount, address(this), params.swapParams);
 
-        // 3. sell part of underlier for FIAT
-        uint256 underlierSwapped = _buyFIATExactOut(params.fiatSwapParams, amount);
+        // sell part of underlier for FIAT
+        uint256 underlierSwapped = _buyFIATExactOut(params.fiatSwapParams, borrowed);
 
-        // 4. send underlier to collateralizer
-        IERC20(params.swapParams.assetOut).transfer(params.collateralizer, sub(underlierAmount, underlierSwapped));
+        // send underlier to collateralizer
+        IERC20(params.swapParams.assetOut).safeTransfer(
+            (params.collateralizer == address(0)) ? initiator : params.collateralizer,
+            sub(underlierAmount, underlierSwapped)
+        );
 
-        // 5. payback
-        fiat.approve(address(moneta), amount);
-        moneta.enter(address(this), amount);
-        codex.transferCredit(address(this), address(flash), amount);
+        // payback
+        fiat.approve(address(moneta), borrowed);
+        moneta.enter(address(this), borrowed);
+        codex.transferCredit(address(this), address(flash), borrowed);
 
         return CALLBACK_SUCCESS_CREDIT;
     }
 
+    /// @dev Executed in the context of LeverEPTActions instead of the Proxy
     function _buyPToken(uint256 underlierAmount, PTokenSwapParams memory swapParams) internal returns (uint256) {
         IBalancerVault.SingleSwap memory singleSwap = IBalancerVault.SingleSwap(
             swapParams.poolId,
             IBalancerVault.SwapKind.GIVEN_IN,
             swapParams.assetIn,
             swapParams.assetOut,
-            underlierAmount, // note precision
+            underlierAmount,
             new bytes(0)
         );
         IBalancerVault.FundManagement memory funds = IBalancerVault.FundManagement(
@@ -250,12 +267,10 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
             false
         );
 
-        if (swapParams.approve != 0) {
-            // approve balancer vault to transfer underlier tokens on behalf of proxy
-            IERC20(swapParams.assetIn).approve(swapParams.balancerVault, swapParams.approve);
+        if (IERC20(swapParams.assetIn).allowance(address(this), swapParams.balancerVault) < underlierAmount) {
+            IERC20(swapParams.assetIn).approve(swapParams.balancerVault, type(uint256).max);
         }
 
-        // kind == `GIVE_IN` use `minAmountOut` as `limit` to enforce min. amount of pTokens to receive
         return
             IBalancerVault(swapParams.balancerVault).swap(
                 singleSwap,
@@ -265,14 +280,12 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
             );
     }
 
+    /// @dev Executed in the context of LeverEPTActions instead of the Proxy
     function _sellPToken(
         uint256 pTokenAmount,
         address to,
         PTokenSwapParams memory swapParams
     ) internal returns (uint256) {
-        // approve Balancer to transfer PToken
-        IERC20(swapParams.assetIn).approve(swapParams.balancerVault, pTokenAmount);
-
         IBalancerVault.SingleSwap memory singleSwap = IBalancerVault.SingleSwap(
             swapParams.poolId,
             IBalancerVault.SwapKind.GIVEN_IN,
@@ -288,12 +301,10 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
             false
         );
 
-        if (swapParams.approve != 0) {
-            // approve balancer vault to transfer pTokens on behalf of proxy
-            IERC20(swapParams.assetIn).approve(swapParams.balancerVault, swapParams.approve);
+        if (IERC20(swapParams.assetIn).allowance(address(this), swapParams.balancerVault) < pTokenAmount) {
+            IERC20(swapParams.assetIn).approve(swapParams.balancerVault, type(uint256).max);
         }
 
-        // kind == `GIVE_IN` use `minAmountOut` as `limit` to enforce min. amount of underliers to receive
         return
             IBalancerVault(swapParams.balancerVault).swap(
                 singleSwap,
@@ -373,7 +384,7 @@ contract EPTLeverActions is Lever20Actions, ICreditFlashBorrower, IERC3156FlashB
                     ? wdiv(balances[0], tokenScale)
                     : wdiv(balances[1], underlierScale);
             } else {
-                revert EPTLeverActions__solveTradeInvariant_tokenMismatch();
+                revert LeverEPTActions__solveTradeInvariant_tokenMismatch();
             }
         }
 

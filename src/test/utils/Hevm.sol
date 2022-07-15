@@ -18,4 +18,8 @@ abstract contract Hevm {
     function ffi(string[] calldata) external virtual returns (bytes memory);
 
     function expectRevert(bytes calldata) external virtual;
+
+    function startPrank(address) external virtual;
+
+    function stopPrank() external virtual;
 }
