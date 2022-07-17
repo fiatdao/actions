@@ -11,66 +11,7 @@ import {IFIAT} from "fiat/interfaces/IFIAT.sol";
 import {WAD, toInt256, wmul, wdiv, sub} from "fiat/utils/Math.sol";
 
 import {Vault20Actions} from "./Vault20Actions.sol";
-
-interface IBalancerVault {
-    enum SwapKind {
-        GIVEN_IN,
-        GIVEN_OUT
-    }
-
-    struct FundManagement {
-        address sender;
-        bool fromInternalBalance;
-        address payable recipient;
-        bool toInternalBalance;
-    }
-
-    struct SingleSwap {
-        bytes32 poolId;
-        SwapKind kind;
-        address assetIn;
-        address assetOut;
-        uint256 amount;
-        bytes userData;
-    }
-
-    function swap(
-        SingleSwap memory singleSwap,
-        FundManagement memory funds,
-        uint256 limit,
-        uint256 deadline
-    ) external payable returns (uint256);
-
-    function getPoolTokens(bytes32 poolId)
-        external
-        view
-        returns (
-            address[] memory tokens,
-            uint256[] memory balances,
-            uint256 lastChangeBlock
-        );
-
-    enum PoolSpecialization {
-        GENERAL,
-        MINIMAL_SWAP_INFO,
-        TWO_TOKEN
-    }
-
-    function getPool(bytes32 poolId) external view returns (address, PoolSpecialization);
-}
-
-interface IConvergentCurvePool {
-    function solveTradeInvariant(
-        uint256 amountX,
-        uint256 reserveX,
-        uint256 reserveY,
-        bool out
-    ) external view returns (uint256);
-
-    function percentFee() external view returns (uint256);
-
-    function totalSupply() external view returns (uint256);
-}
+import {ConvergentCurvePoolHelper, IBalancerVault} from "../helper/ConvergentCurvePoolHelper.sol";
 
 interface ITranche {
     function withdrawPrincipal(uint256 _amount, address _destination) external returns (uint256);
@@ -318,7 +259,16 @@ contract VaultEPTActions is Vault20Actions {
         bytes32 curvePoolId,
         uint256 underlierAmount
     ) external view returns (uint256) {
-        return _solveTradeInvariant(underlierAmount, vault, balancerVault, curvePoolId, true);
+        return ConvergentCurvePoolHelper.swapPreview(
+            balancerVault,
+            curvePoolId,
+            underlierAmount,
+            true,
+            IVault(vault).token(),
+            IVault(vault).underlierToken(),
+            IVault(vault).tokenScale(),
+            IVault(vault).underlierScale()
+        );
     }
 
     /// @notice Returns an amount of the pTokens underlier token for a given an amount of pToken (e.g. USDC pToken)
@@ -333,74 +283,15 @@ contract VaultEPTActions is Vault20Actions {
         bytes32 curvePoolId,
         uint256 pTokenAmount
     ) external view returns (uint256) {
-        return _solveTradeInvariant(pTokenAmount, vault, balancerVault, curvePoolId, false);
-    }
-
-    /// @dev Adapted from https://github.com/element-fi/elf-contracts/blob/main/contracts/ConvergentCurvePool.sol#L150
-    function _solveTradeInvariant(
-        uint256 amountIn_,
-        address vault,
-        address balancerVault,
-        bytes32 poolId,
-        bool fromUnderlier
-    ) internal view returns (uint256) {
-        uint256 tokenScale = IVault(vault).tokenScale();
-        uint256 underlierScale = IVault(vault).underlierScale();
-
-        // convert from either underlierScale or tokenScale to scale used by elf (== wad)
-        uint256 amountIn = (fromUnderlier) ? wdiv(amountIn_, underlierScale) : wdiv(amountIn_, tokenScale);
-
-        uint256 currentBalanceTokenIn;
-        uint256 currentBalanceTokenOut;
-        {
-            (address[] memory tokens, uint256[] memory balances, ) = IBalancerVault(balancerVault).getPoolTokens(
-                poolId
-            );
-            address token = IVault(vault).token();
-            address underlier = IVault(vault).underlierToken();
-
-            if (tokens[0] == underlier && tokens[1] == token) {
-                currentBalanceTokenIn = (fromUnderlier)
-                    ? wdiv(balances[0], underlierScale)
-                    : wdiv(balances[1], tokenScale);
-                currentBalanceTokenOut = (fromUnderlier)
-                    ? wdiv(balances[1], tokenScale)
-                    : wdiv(balances[0], underlierScale);
-            } else if (tokens[0] == token && tokens[1] == underlier) {
-                currentBalanceTokenIn = (fromUnderlier)
-                    ? wdiv(balances[1], underlierScale)
-                    : wdiv(balances[0], tokenScale);
-                currentBalanceTokenOut = (fromUnderlier)
-                    ? wdiv(balances[0], tokenScale)
-                    : wdiv(balances[1], underlierScale);
-            } else {
-                revert VaultEPTActions__solveTradeInvariant_tokenMismatch();
-            }
-        }
-
-        (address pool, ) = IBalancerVault(balancerVault).getPool(poolId);
-        IConvergentCurvePool ccp = IConvergentCurvePool(pool);
-
-        // https://github.com/element-fi/elf-contracts/blob/main/contracts/ConvergentCurvePool.sol#L680
-        if (fromUnderlier) {
-            unchecked {
-                currentBalanceTokenOut += ccp.totalSupply();
-            }
-        } else {
-            unchecked {
-                currentBalanceTokenIn += ccp.totalSupply();
-            }
-        }
-
-        uint256 amountOut = ccp.solveTradeInvariant(amountIn, currentBalanceTokenIn, currentBalanceTokenOut, true);
-        uint256 impliedYieldFee = wmul(
-            ccp.percentFee(),
-            fromUnderlier
-                ? sub(amountOut, amountIn) // If the output is token the implied yield is out - in
-                : sub(amountIn, amountOut) // If the output is underlier the implied yield is in - out
+        return ConvergentCurvePoolHelper.swapPreview(
+            balancerVault,
+            curvePoolId,
+            pTokenAmount,
+            false,
+            IVault(vault).token(),
+            IVault(vault).underlierToken(),
+            IVault(vault).tokenScale(),
+            IVault(vault).underlierScale()
         );
-
-        // convert from wad to either tokenScale or underlierScale
-        return wmul(sub(amountOut, impliedYieldFee), (fromUnderlier) ? tokenScale : underlierScale);
     }
 }

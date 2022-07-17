@@ -25,7 +25,8 @@ import {VaultFactory} from "vaults/VaultFactory.sol";
 import {Hevm} from "../utils/Hevm.sol";
 import {Caller} from "../utils/Caller.sol";
 
-import {VaultEPTActions, IBalancerVault} from "../../vault/VaultEPTActions.sol";
+import {VaultEPTActions} from "../../vault/VaultEPTActions.sol";
+import {IBalancerVault} from "../../helper/ConvergentCurvePoolHelper.sol";
 
 interface ITrancheFactory {
     function deployTranche(uint256 expiration, address wpAddress) external returns (address);

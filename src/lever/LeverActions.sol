@@ -12,52 +12,7 @@ import {IFlash, ICreditFlashBorrower, IERC3156FlashBorrower} from "fiat/interfac
 import {IPublican} from "fiat/interfaces/IPublican.sol";
 import {WAD, toInt256, wmul, wdiv, sub} from "fiat/utils/Math.sol";
 
-interface IBalancerVault {
-    enum SwapKind {
-        GIVEN_IN,
-        GIVEN_OUT
-    }
-
-    struct FundManagement {
-        address sender;
-        bool fromInternalBalance;
-        address payable recipient;
-        bool toInternalBalance;
-    }
-
-    struct SingleSwap {
-        bytes32 poolId;
-        SwapKind kind;
-        address assetIn;
-        address assetOut;
-        uint256 amount;
-        bytes userData;
-    }
-
-    function swap(
-        SingleSwap memory singleSwap,
-        FundManagement memory funds,
-        uint256 limit,
-        uint256 deadline
-    ) external payable returns (uint256);
-
-    function getPoolTokens(bytes32 poolId)
-        external
-        view
-        returns (
-            address[] memory tokens,
-            uint256[] memory balances,
-            uint256 lastChangeBlock
-        );
-
-    enum PoolSpecialization {
-        GENERAL,
-        MINIMAL_SWAP_INFO,
-        TWO_TOKEN
-    }
-
-    function getPool(bytes32 poolId) external view returns (address, PoolSpecialization);
-}
+import {IBalancerVault} from "../helper/ConvergentCurvePoolHelper.sol";
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // WARNING: These functions meant to be used as a a library for a PRBProxy. Some are unsafe if you call them directly.

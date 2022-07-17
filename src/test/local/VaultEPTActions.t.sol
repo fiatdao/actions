@@ -14,7 +14,8 @@ import {Moneta} from "fiat/Moneta.sol";
 import {FIAT} from "fiat/FIAT.sol";
 import {WAD, toInt256, wmul, wdiv, sub, add} from "fiat/utils/Math.sol";
 
-import {VaultEPTActions, IBalancerVault, IConvergentCurvePool} from "../../vault/VaultEPTActions.sol";
+import {VaultEPTActions} from "../../vault/VaultEPTActions.sol";
+import {IBalancerVault, IConvergentCurvePool} from "../../helper/ConvergentCurvePoolHelper.sol";
 
 contract BalancerVaultMock {
     enum PoolSpecialization {
